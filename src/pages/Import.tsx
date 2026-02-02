@@ -47,10 +47,10 @@ export default function Import() {
 
   const handleProventosFile = async (file: File) => {
     setProventos({ state: 'parsing', parseResult: null, message: '' });
-    
+
     try {
       const result = await parseProventosFile(file);
-      
+
       if (result.errors.length > 0) {
         setProventos({
           state: 'preview',
@@ -75,10 +75,10 @@ export default function Import() {
 
   const handleNegociacaoFile = async (file: File) => {
     setNegociacao({ state: 'parsing', parseResult: null, message: '' });
-    
+
     try {
       const result = await parseNegociacaoFileAuto(file);
-      
+
       if (result.errors.length > 0) {
         setNegociacao({
           state: 'preview',
@@ -103,10 +103,13 @@ export default function Import() {
 
   const confirmProventosImport = async () => {
     if (!proventos.parseResult) return;
-    
+
     setProventos(prev => ({ ...prev, state: 'importing' }));
-    
+
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
       const rows = proventos.parseResult.data.map(row => ({
         product_raw: row.productRaw,
         ticker: row.ticker,
@@ -116,6 +119,7 @@ export default function Import() {
         quantity: row.quantity,
         unit_price: row.unitPrice,
         net_value: row.netValue,
+        user_id: user.id,
       }));
 
       const { error } = await supabase
@@ -131,9 +135,9 @@ export default function Import() {
       });
       toast.success(`${rows.length} proventos importados com sucesso!`);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 
-        (typeof err === 'object' && err !== null && 'message' in err) ? String((err as {message: unknown}).message) : 
-        String(err);
+      const errorMessage = err instanceof Error ? err.message :
+        (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
+          String(err);
       setProventos(prev => ({
         ...prev,
         state: 'error',
@@ -145,10 +149,13 @@ export default function Import() {
 
   const confirmNegociacaoImport = async () => {
     if (!negociacao.parseResult) return;
-    
+
     setNegociacao(prev => ({ ...prev, state: 'importing' }));
-    
+
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
       const rows = negociacao.parseResult.data.map(row => ({
         trade_date: row.tradeDate.toISOString().split('T')[0],
         movement_type: row.movementType,
@@ -160,6 +167,7 @@ export default function Import() {
         quantity: row.quantity,
         price: row.price,
         total_value: row.totalValue,
+        user_id: user.id,
       }));
 
       const { error } = await supabase
@@ -175,9 +183,9 @@ export default function Import() {
       });
       toast.success(`${rows.length} negociações importadas com sucesso!`);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 
-        (typeof err === 'object' && err !== null && 'message' in err) ? String((err as {message: unknown}).message) : 
-        String(err);
+      const errorMessage = err instanceof Error ? err.message :
+        (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
+          String(err);
       setNegociacao(prev => ({
         ...prev,
         state: 'error',
@@ -233,7 +241,7 @@ export default function Import() {
           isLoading={proventos.state === 'parsing'}
           status={
             proventos.state === 'success' ? 'success' :
-            proventos.state === 'error' ? 'error' : 'idle'
+              proventos.state === 'error' ? 'error' : 'idle'
           }
           statusMessage={proventos.message}
         />
@@ -246,7 +254,7 @@ export default function Import() {
           isLoading={negociacao.state === 'parsing'}
           status={
             negociacao.state === 'success' ? 'success' :
-            negociacao.state === 'error' ? 'error' : 'idle'
+              negociacao.state === 'error' ? 'error' : 'idle'
           }
           statusMessage={negociacao.message}
           acceptFormats=".xlsx,.xls,.csv"
