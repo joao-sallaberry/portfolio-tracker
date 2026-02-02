@@ -1,4 +1,4 @@
-import { BarChart3, TrendingUp, Wallet, Upload, Home, Briefcase, Receipt } from 'lucide-react';
+import { BarChart3, TrendingUp, Wallet, Upload, Home, Briefcase, Receipt, Settings } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Sidebar,
@@ -18,11 +18,12 @@ const menuItems = [
   { title: 'Proventos', icon: Wallet, path: '/proventos' },
   { title: 'Imposto de Renda', icon: Receipt, path: '/imposto-renda' },
   { title: 'Importar Dados', icon: Upload, path: '/importar' },
+  { title: 'Configurações', icon: Settings, path: '/configuracoes' },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
-  
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border px-6 py-5">
