@@ -110,7 +110,23 @@ export default function Import() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      const rows = proventos.parseResult.data.map(row => ({
+      // 1. Fetch existing data for comparison (Limit to relevant fields usually, but select * is fine for small datasets)
+      // fetching all might be heavy for huge users, but for now it's okay.
+      const { data: existingEvents } = await supabase
+        .from('dividend_events')
+        .select('*');
+
+      const existingMap = new Map<string, number>();
+      existingEvents?.forEach(ev => {
+        const key = `${ev.ticker}-${ev.payment_date}-${ev.event_type}-${ev.quantity}-${ev.net_value}`;
+        existingMap.set(key, (existingMap.get(key) || 0) + 1);
+      });
+
+      const rowsToInsert = [];
+      const incomingMap = new Map<string, number>(); // Count usage within the file itself
+
+      // Prepare rows for inserting
+      const candidates = proventos.parseResult.data.map(row => ({
         product_raw: row.productRaw,
         ticker: row.ticker,
         payment_date: row.paymentDate.toISOString().split('T')[0],
@@ -122,18 +138,47 @@ export default function Import() {
         user_id: user.id,
       }));
 
+      for (const row of candidates) {
+        const key = `${row.ticker}-${row.payment_date}-${row.event_type}-${row.quantity}-${row.net_value}`;
+
+        const existingCount = existingMap.get(key) || 0;
+        const usedCount = incomingMap.get(key) || 0;
+
+        if (usedCount < existingCount) {
+          // We found one match in DB that "absorbs" this file row
+          // "Mark" it as matched by incrementing our usage count
+          incomingMap.set(key, usedCount + 1);
+          // Skip insertion
+        } else {
+          // We have more in file than in DB (or none in DB) -> Insert this one
+          rowsToInsert.push(row);
+          // Also increment usage in case there are 3 in file and 1 in DB
+          incomingMap.set(key, usedCount + 1);
+        }
+      }
+
+      if (rowsToInsert.length === 0) {
+        setProventos({
+          state: 'success',
+          parseResult: null,
+          message: `Todos os ${candidates.length} proventos já estavam cadastrados.`,
+        });
+        toast.info("Nenhum dado novo para importar.");
+        return;
+      }
+
       const { error } = await supabase
         .from('dividend_events')
-        .insert(rows);
+        .insert(rowsToInsert);
 
       if (error) throw error;
 
       setProventos({
         state: 'success',
         parseResult: null,
-        message: `${rows.length} proventos importados com sucesso!`,
+        message: `${rowsToInsert.length} novos proventos importados (${candidates.length - rowsToInsert.length} duplicados ignorados).`,
       });
-      toast.success(`${rows.length} proventos importados com sucesso!`);
+      toast.success(`${rowsToInsert.length} importados com sucesso!`);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message :
         (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
@@ -156,7 +201,22 @@ export default function Import() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      const rows = negociacao.parseResult.data.map(row => ({
+      // 1. Fetch existing data
+      const { data: existingTrades } = await supabase
+        .from('trade_operations')
+        .select('*');
+
+      const existingMap = new Map<string, number>();
+      existingTrades?.forEach(tr => {
+        // Key excluding ID, created_at, etc
+        const key = `${tr.trade_date}-${tr.movement_type}-${tr.ticker}-${tr.quantity}-${tr.total_value}`;
+        existingMap.set(key, (existingMap.get(key) || 0) + 1);
+      });
+
+      const rowsToInsert = [];
+      const incomingMap = new Map<string, number>();
+
+      const candidates = negociacao.parseResult.data.map(row => ({
         trade_date: row.tradeDate.toISOString().split('T')[0],
         movement_type: row.movementType,
         movement_type_raw: row.movementTypeRaw,
@@ -170,18 +230,44 @@ export default function Import() {
         user_id: user.id,
       }));
 
+      for (const row of candidates) {
+        const key = `${row.trade_date}-${row.movement_type}-${row.ticker}-${row.quantity}-${row.total_value}`;
+
+        const existingCount = existingMap.get(key) || 0;
+        const usedCount = incomingMap.get(key) || 0;
+
+        if (usedCount < existingCount) {
+          // Absorbed by existing record
+          incomingMap.set(key, usedCount + 1);
+        } else {
+          // New record
+          rowsToInsert.push(row);
+          incomingMap.set(key, usedCount + 1);
+        }
+      }
+
+      if (rowsToInsert.length === 0) {
+        setNegociacao({
+          state: 'success',
+          parseResult: null,
+          message: `Todas as ${candidates.length} negociações já estavam cadastradas.`,
+        });
+        toast.info("Nenhuma negociação nova.");
+        return;
+      }
+
       const { error } = await supabase
         .from('trade_operations')
-        .insert(rows);
+        .insert(rowsToInsert);
 
       if (error) throw error;
 
       setNegociacao({
         state: 'success',
         parseResult: null,
-        message: `${rows.length} negociações importadas com sucesso!`,
+        message: `${rowsToInsert.length} novas negociações importadas (${candidates.length - rowsToInsert.length} duplicadas ignoradas).`,
       });
-      toast.success(`${rows.length} negociações importadas com sucesso!`);
+      toast.success(`${rowsToInsert.length} importadas com sucesso!`);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message :
         (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
