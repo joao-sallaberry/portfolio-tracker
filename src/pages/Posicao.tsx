@@ -7,13 +7,7 @@ import { formatCurrencyBRL, formatNumber } from '@/lib/formatters';
 import { classifyAsset } from '@/lib/asset-classifier';
 import { Briefcase } from 'lucide-react';
 
-interface Position {
-  ticker: string;
-  assetClass: string;
-  quantity: number;
-  avgPrice: number;
-  totalValue: number;
-}
+import { calculatePositions, type Position } from '@/lib/portfolio-calculations';
 
 export default function Posicao() {
   const { data: trades, isLoading } = useQuery({
@@ -27,7 +21,8 @@ export default function Posicao() {
       while (hasMore) {
         const { data, error } = await supabase
           .from('trade_operations')
-          .select('ticker, quantity, price, total_value, movement_type')
+          .select('ticker, quantity, price, total_value, movement_type, trade_date')
+          .order('trade_date', { ascending: true })
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
@@ -43,42 +38,7 @@ export default function Posicao() {
     },
   });
 
-  // Calculate positions by aggregating trades
-  const positions: Position[] = trades
-    ? Object.values(
-        trades.reduce((acc: Record<string, { ticker: string; buyQty: number; buyTotal: number; sellQty: number }>, trade) => {
-          const ticker = trade.ticker;
-          if (!acc[ticker]) {
-            acc[ticker] = { ticker, buyQty: 0, buyTotal: 0, sellQty: 0 };
-          }
-
-          const qty = Number(trade.quantity);
-          const total = Number(trade.total_value);
-
-          if (trade.movement_type === 'BUY') {
-            acc[ticker].buyQty += qty;
-            acc[ticker].buyTotal += total;
-          } else {
-            acc[ticker].sellQty += qty;
-          }
-
-          return acc;
-        }, {})
-      )
-        .map((item: any) => {
-          const netQty = item.buyQty - item.sellQty;
-          const avgPrice = item.buyQty > 0 ? item.buyTotal / item.buyQty : 0;
-          return {
-            ticker: item.ticker,
-            assetClass: classifyAsset(item.ticker),
-            quantity: netQty,
-            avgPrice,
-            totalValue: netQty * avgPrice,
-          };
-        })
-        .filter((p) => p.quantity > 0)
-        .sort((a, b) => b.totalValue - a.totalValue)
-    : [];
+  const positions: Position[] = calculatePositions(trades);
 
   const totalPortfolio = positions.reduce((sum, p) => sum + p.totalValue, 0);
 
