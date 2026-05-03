@@ -104,10 +104,13 @@ export function extractTicker(productRaw: string): string {
   return productRaw.trim();
 }
 
-export function normalizeMovementType(type: string): 'BUY' | 'SELL' | 'SPLIT' | 'REVERSE_SPLIT' | 'BONUS' | 'AMORTIZATION' {
+export function normalizeMovementType(type: string): 'BUY' | 'SELL' | 'SPLIT' | 'REVERSE_SPLIT' | 'BONUS' | 'AMORTIZATION' | 'UNKNOWN' {
   const normalized = type.toLowerCase().trim();
   if (normalized.includes('compra') || normalized === 'buy') {
     return 'BUY';
+  }
+  if (normalized.includes('venda') || normalized === 'sell') {
+    return 'SELL';
   }
   if (normalized.includes('bonifica') || normalized === 'bonus') {
     return 'BONUS';
@@ -121,7 +124,7 @@ export function normalizeMovementType(type: string): 'BUY' | 'SELL' | 'SPLIT' | 
   if (normalized.includes('amortiza') || normalized === 'amortization') {
     return 'AMORTIZATION';
   }
-  return 'SELL';
+  return 'UNKNOWN';
 }
 
 export function parseCurrencyBR(value: string): number {

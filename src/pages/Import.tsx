@@ -126,17 +126,19 @@ export default function Import() {
       const incomingMap = new Map<string, number>(); // Count usage within the file itself
 
       // Prepare rows for inserting
-      const candidates = proventos.parseResult.data.map(row => ({
-        product_raw: row.productRaw,
-        ticker: row.ticker,
-        payment_date: row.paymentDate.toISOString().split('T')[0],
-        event_type: row.eventType,
-        institution: row.institution,
-        quantity: row.quantity,
-        unit_price: row.unitPrice,
-        net_value: row.netValue,
-        user_id: user.id,
-      }));
+      const candidates = proventos.parseResult.data
+        .filter(row => !row.hasErrors)
+        .map(row => ({
+          product_raw: row.productRaw,
+          ticker: row.ticker,
+          payment_date: row.paymentDate ? row.paymentDate.toISOString().split('T')[0] : '',
+          event_type: row.eventType,
+          institution: row.institution,
+          quantity: row.quantity,
+          unit_price: row.unitPrice,
+          net_value: row.netValue,
+          user_id: user.id,
+        }));
 
       for (const row of candidates) {
         const key = `${row.ticker}-${row.payment_date}-${row.event_type}-${row.quantity}-${row.net_value}`;
@@ -216,19 +218,21 @@ export default function Import() {
       const rowsToInsert = [];
       const incomingMap = new Map<string, number>();
 
-      const candidates = negociacao.parseResult.data.map(row => ({
-        trade_date: row.tradeDate.toISOString().split('T')[0],
-        movement_type: row.movementType,
-        movement_type_raw: row.movementTypeRaw,
-        market: row.market,
-        maturity: row.maturity,
-        institution: row.institution,
-        ticker: row.ticker,
-        quantity: row.quantity,
-        price: row.price,
-        total_value: row.totalValue,
-        user_id: user.id,
-      }));
+      const candidates = negociacao.parseResult.data
+        .filter(row => !row.hasErrors)
+        .map(row => ({
+          trade_date: row.tradeDate ? row.tradeDate.toISOString().split('T')[0] : '',
+          movement_type: row.movementType,
+          movement_type_raw: row.movementTypeRaw,
+          market: row.market,
+          maturity: row.maturity,
+          institution: row.institution,
+          ticker: row.ticker,
+          quantity: row.quantity,
+          price: row.price,
+          total_value: row.totalValue,
+          user_id: user.id,
+        }));
 
       for (const row of candidates) {
         const key = `${row.trade_date}-${row.movement_type}-${row.ticker}-${row.quantity}-${row.total_value}`;
