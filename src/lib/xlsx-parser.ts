@@ -4,17 +4,19 @@ import { parseDateBR, parseDateBRShort, parseNumberBR, parseCurrencyBR, extractT
 export interface DividendEventRow {
   productRaw: string;
   ticker: string;
-  paymentDate: Date;
+  paymentDate: Date | null;
   eventType: string;
   institution: string;
   quantity: number;
   unitPrice: number;
   netValue: number;
+  hasErrors?: boolean;
+  errorMessages?: string[];
 }
 
 export interface TradeOperationRow {
-  tradeDate: Date;
-  movementType: 'BUY' | 'SELL' | 'SPLIT' | 'REVERSE_SPLIT' | 'BONUS' | 'AMORTIZATION';
+  tradeDate: Date | null;
+  movementType: 'BUY' | 'SELL' | 'SPLIT' | 'REVERSE_SPLIT' | 'BONUS' | 'AMORTIZATION' | 'UNKNOWN';
   movementTypeRaw: string;
   market: string;
   maturity: string | null;
@@ -23,6 +25,8 @@ export interface TradeOperationRow {
   quantity: number;
   price: number;
   totalValue: number;
+  hasErrors?: boolean;
+  errorMessages?: string[];
 }
 
 export interface ParseResult<T> {
@@ -148,10 +152,10 @@ export function parseProventosFile(file: File): Promise<ParseResult<DividendEven
             const unitPrice = parseNumberBR(row[columnIndexes['Preço unitário']] as string | number);
             const netValue = parseNumberBR(row[columnIndexes['Valor líquido']] as string | number);
             
-            if (!productRaw || !paymentDate || !eventType) {
-              warnings.push(`Linha ${i + 1}: dados incompletos, ignorada`);
-              continue;
-            }
+            const rowErrors: string[] = [];
+            if (!productRaw) rowErrors.push('Produto não informado');
+            if (!paymentDate) rowErrors.push('Data de pagamento inválida ou não informada');
+            if (!eventType) rowErrors.push('Tipo de evento não informado');
             
             parsedRows.push({
               productRaw,
@@ -162,7 +166,13 @@ export function parseProventosFile(file: File): Promise<ParseResult<DividendEven
               quantity,
               unitPrice,
               netValue,
+              hasErrors: rowErrors.length > 0,
+              errorMessages: rowErrors,
             });
+            
+            if (rowErrors.length > 0) {
+              warnings.push(`Linha ${i + 1}: ${rowErrors.join(', ')}`);
+            }
           } catch (err) {
             warnings.push(`Linha ${i + 1}: erro ao processar - ${err}`);
           }
@@ -260,14 +270,19 @@ export function parseNegociacaoFile(file: File): Promise<ParseResult<TradeOperat
             const price = parseNumberBR(row[columnIndexes['Preço']] as string | number);
             const totalValue = parseNumberBR(row[columnIndexes['Valor']] as string | number);
             
-            if (!tradeDate || !movementTypeRaw || !ticker) {
-              warnings.push(`Linha ${i + 1}: dados incompletos, ignorada`);
-              continue;
+            const rowErrors: string[] = [];
+            if (!tradeDate) rowErrors.push('Data do negócio inválida ou não informada');
+            if (!movementTypeRaw) rowErrors.push('Tipo de movimentação não informado');
+            if (!ticker) rowErrors.push('Código de negociação não informado');
+            
+            const movementType = normalizeMovementType(movementTypeRaw);
+            if (movementTypeRaw && movementType === 'UNKNOWN') {
+              rowErrors.push(`Tipo de movimentação desconhecido: ${movementTypeRaw}`);
             }
             
             parsedRows.push({
               tradeDate,
-              movementType: normalizeMovementType(movementTypeRaw),
+              movementType,
               movementTypeRaw,
               market,
               maturity,
@@ -276,7 +291,13 @@ export function parseNegociacaoFile(file: File): Promise<ParseResult<TradeOperat
               quantity,
               price,
               totalValue,
+              hasErrors: rowErrors.length > 0,
+              errorMessages: rowErrors,
             });
+            
+            if (rowErrors.length > 0) {
+              warnings.push(`Linha ${i + 1}: ${rowErrors.join(', ')}`);
+            }
           } catch (err) {
             warnings.push(`Linha ${i + 1}: erro ao processar - ${err}`);
           }
@@ -415,39 +436,53 @@ function parseNegociacaoCSV(file: File): Promise<ParseResult<TradeOperationRow>>
             const qtyStr = row[qtdIdx] || '0';
             const tipoRaw = row[tipoIdx]?.trim();
             
-            if (!ticker || !dateStr || !tipoRaw) {
+            if (!ticker && !dateStr && !tipoRaw) {
               // Skip empty rows silently
               continue;
             }
             
+            const rowErrors: string[] = [];
+            if (!ticker) rowErrors.push('Ticker vazio');
+            if (!dateStr) rowErrors.push('Data vazia');
+            if (!tipoRaw) rowErrors.push('Tipo vazio');
+            
             // Parse date (try both DD/MM/YYYY and DD/MM/YY)
-            let tradeDate = parseDateBR(dateStr);
-            if (!tradeDate) {
+            let tradeDate = dateStr ? parseDateBR(dateStr) : null;
+            if (!tradeDate && dateStr) {
               tradeDate = parseDateBRShort(dateStr);
             }
             
-            if (!tradeDate) {
-              warnings.push(`Linha ${i + 1}: data inválida "${dateStr}", ignorada`);
-              continue;
+            if (dateStr && !tradeDate) {
+              rowErrors.push(`Data inválida: "${dateStr}"`);
             }
             
             const price = parseCurrencyBR(priceStr);
             const quantity = parseNumberBR(qtyStr);
-            const movementType = normalizeMovementType(tipoRaw);
+            const movementType = normalizeMovementType(tipoRaw || '');
             const totalValue = price * quantity;
+            
+            if (tipoRaw && movementType === 'UNKNOWN') {
+              rowErrors.push(`Tipo de movimentação desconhecido: ${tipoRaw}`);
+            }
             
             parsedRows.push({
               tradeDate,
               movementType,
-              movementTypeRaw: tipoRaw,
+              movementTypeRaw: tipoRaw || '',
               market: 'Bovespa',
               maturity: null,
               institution: 'Importação Manual',
-              ticker,
+              ticker: ticker || '',
               quantity,
               price,
               totalValue,
+              hasErrors: rowErrors.length > 0,
+              errorMessages: rowErrors,
             });
+            
+            if (rowErrors.length > 0) {
+              warnings.push(`Linha ${i + 1}: ${rowErrors.join(', ')}`);
+            }
           } catch (err) {
             warnings.push(`Linha ${i + 1}: erro ao processar - ${err}`);
           }

@@ -28,6 +28,8 @@ export function PreviewTable<T extends DividendEventRow | TradeOperationRow>({
   isImporting = false,
   type,
 }: PreviewTableProps<T>) {
+  const validCount = data.filter(r => !r.hasErrors).length;
+  
   const previewData = data.slice(0, 20);
   const hasErrors = errors.length > 0;
 
@@ -38,7 +40,7 @@ export function PreviewTable<T extends DividendEventRow | TradeOperationRow>({
           <div>
             <CardTitle className="text-lg">{title}</CardTitle>
             <CardDescription>
-              {totalRows} linhas encontradas • {data.length} registros válidos
+              {totalRows} linhas encontradas • {validCount} registros válidos
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -90,11 +92,11 @@ export function PreviewTable<T extends DividendEventRow | TradeOperationRow>({
           </div>
         )}
 
-        {data.length > 0 && !hasErrors && (
+        {validCount > 0 && !hasErrors && (
           <div className="flex items-center gap-2 rounded-lg bg-success/10 p-3 text-success">
             <CheckCircle2 className="h-5 w-5" />
             <span className="text-sm font-medium">
-              {data.length} registros prontos para importação
+              {validCount} registros prontos para importação
             </span>
           </div>
         )}
@@ -129,20 +131,24 @@ export function PreviewTable<T extends DividendEventRow | TradeOperationRow>({
             </TableHeader>
             <TableBody>
               {previewData.map((row, i) => (
-                <TableRow key={i}>
+                <TableRow 
+                  key={i} 
+                  className={row.hasErrors ? "bg-destructive/10 hover:bg-destructive/20" : ""}
+                  title={row.errorMessages?.join('\n')}
+                >
                   {type === 'proventos' ? (
                     <>
-                      <TableCell className="font-mono font-medium">{(row as DividendEventRow).ticker}</TableCell>
-                      <TableCell>{formatDateBR((row as DividendEventRow).paymentDate)}</TableCell>
-                      <TableCell>{(row as DividendEventRow).eventType}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{(row as DividendEventRow).institution}</TableCell>
+                      <TableCell className="font-mono font-medium">{(row as DividendEventRow).ticker || '-'}</TableCell>
+                      <TableCell>{(row as DividendEventRow).paymentDate ? formatDateBR((row as DividendEventRow).paymentDate!) : '-'}</TableCell>
+                      <TableCell>{(row as DividendEventRow).eventType || '-'}</TableCell>
+                      <TableCell className="max-w-[150px] truncate">{(row as DividendEventRow).institution || '-'}</TableCell>
                       <TableCell className="text-right font-mono">{formatNumber((row as DividendEventRow).quantity, 0)}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrencyBRL((row as DividendEventRow).unitPrice)}</TableCell>
                       <TableCell className="text-right font-mono font-medium">{formatCurrencyBRL((row as DividendEventRow).netValue)}</TableCell>
                     </>
                   ) : (
                     <>
-                      <TableCell>{formatDateBR((row as TradeOperationRow).tradeDate)}</TableCell>
+                      <TableCell>{(row as TradeOperationRow).tradeDate ? formatDateBR((row as TradeOperationRow).tradeDate!) : '-'}</TableCell>
                       <TableCell>
                         <span className={
                           (row as TradeOperationRow).movementType === 'BUY' || (row as TradeOperationRow).movementType === 'BONUS' ? 'text-success' : 
