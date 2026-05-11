@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,11 +6,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrencyBRL, formatNumber } from '@/lib/formatters';
 import { classifyAsset } from '@/lib/asset-classifier';
-import { Briefcase } from 'lucide-react';
+import { Briefcase, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 import { calculatePositions, type Position } from '@/lib/portfolio-calculations';
 
+type SortKey = 'ticker' | 'quantity' | 'avgPrice' | 'totalValue' | 'portfolioWeight';
+type SortDirection = 'asc' | 'desc';
+
 export default function Posicao() {
+  const [sortKey, setSortKey] = useState<SortKey>('totalValue');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { data: trades, isLoading } = useQuery({
     queryKey: ['trade_operations_positions'],
     queryFn: async () => {
@@ -56,6 +62,40 @@ export default function Posicao() {
     if (classPositions.length === 0) return null;
     const classTotal = classPositions.reduce((sum, p) => sum + p.totalValue, 0);
 
+    const handleSort = (key: SortKey) => {
+      if (sortKey === key) {
+        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      } else {
+        setSortKey(key);
+        setSortDirection(key === 'ticker' ? 'asc' : 'desc');
+      }
+    };
+
+    const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
+      if (sortKey !== columnKey) return <ArrowUpDown className="ml-1 h-3 w-3 inline text-muted-foreground" />;
+      return sortDirection === 'asc' ? <ArrowUp className="ml-1 h-3 w-3 inline" /> : <ArrowDown className="ml-1 h-3 w-3 inline" />;
+    };
+
+    const sortedPositions = [...classPositions].sort((a, b) => {
+      let valA: string | number = 0;
+      let valB: string | number = 0;
+
+      if (sortKey === 'ticker') {
+        valA = a.ticker;
+        valB = b.ticker;
+      } else if (sortKey === 'portfolioWeight') {
+        valA = a.totalValue; // equivalent to portfolioWeight for sorting
+        valB = b.totalValue;
+      } else {
+        valA = a[sortKey];
+        valB = b[sortKey];
+      }
+
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     return (
       <Card key={className}>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -69,15 +109,15 @@ export default function Posicao() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Ativo</TableHead>
-                <TableHead className="text-right">Quantidade</TableHead>
-                <TableHead className="text-right">Preço Médio</TableHead>
-                <TableHead className="text-right">Valor Total</TableHead>
-                <TableHead className="text-right">% Carteira</TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('ticker')}>Ativo <SortIcon columnKey="ticker" /></TableHead>
+                <TableHead className="text-right cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('quantity')}>Quantidade <SortIcon columnKey="quantity" /></TableHead>
+                <TableHead className="text-right cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('avgPrice')}>Preço Médio <SortIcon columnKey="avgPrice" /></TableHead>
+                <TableHead className="text-right cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('totalValue')}>Valor Total <SortIcon columnKey="totalValue" /></TableHead>
+                <TableHead className="text-right cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('portfolioWeight')}>% Carteira <SortIcon columnKey="portfolioWeight" /></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {classPositions.map((position) => (
+              {sortedPositions.map((position) => (
                 <TableRow key={position.ticker}>
                   <TableCell className="font-mono font-medium">{position.ticker}</TableCell>
                   <TableCell className="text-right font-mono">
