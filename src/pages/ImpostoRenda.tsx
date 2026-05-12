@@ -67,6 +67,9 @@ interface MonthlyTotals {
   total_tax_due: number;
   accumulated_loss: number;
   sales: SaleWithProfit[];
+  has_exemption?: boolean;
+  total_acao_sales?: number;
+  total_acao_profit?: number;
 }
 
 // Tax groups with their tax rates
@@ -432,6 +435,9 @@ export default function ImpostoRenda() {
           total_tax_due: 0,
           accumulated_loss: 0,
           sales: [],
+          has_exemption: false,
+          total_acao_sales: 0,
+          total_acao_profit: 0,
         });
       }
 
@@ -440,6 +446,27 @@ export default function ImpostoRenda() {
       monthData.total_profit_loss += sale.profit_loss;
       monthData.total_tax_due += sale.tax_due;
       monthData.sales.push(sale);
+      
+      if (classifyAsset(sale.ticker) === 'Ação') {
+        monthData.total_acao_sales! += sale.total_sale_value;
+        monthData.total_acao_profit! += sale.profit_loss;
+      }
+    });
+
+    // Check for exemption
+    monthlyMap.forEach((monthData) => {
+      if (selectedTaxGroup === 'Ações e ETFs' && monthData.total_acao_sales! > 0 && monthData.total_acao_sales! <= 20000 && monthData.total_acao_profit! > 0) {
+        monthData.has_exemption = true;
+        
+        let acaoTaxToRemove = 0;
+        monthData.sales.forEach(sale => {
+           if (classifyAsset(sale.ticker) === 'Ação') {
+               acaoTaxToRemove += sale.tax_due;
+               sale.tax_due = 0; 
+           }
+        });
+        monthData.total_tax_due -= acaoTaxToRemove;
+      }
     });
 
     // Sort sales within each month by date
@@ -457,7 +484,13 @@ export default function ImpostoRenda() {
     // Calculate accumulated loss from the beginning of the year, starting with initial loss
     let accumulatedLoss = initialAccumulatedLoss;
     sortedMonths.forEach((monthData) => {
-      accumulatedLoss += monthData.total_profit_loss;
+      let effectiveProfitForLossCalc = monthData.total_profit_loss;
+      
+      if (monthData.has_exemption && monthData.total_acao_profit! > 0) {
+        effectiveProfitForLossCalc -= monthData.total_acao_profit!;
+      }
+      
+      accumulatedLoss += effectiveProfitForLossCalc;
       // If accumulated would be positive, set to zero (only track losses)
       monthData.accumulated_loss = accumulatedLoss < 0 ? accumulatedLoss : 0;
       // If there's accumulated loss, update accumulatedLoss to track it
@@ -627,8 +660,15 @@ export default function ImpostoRenda() {
               {salesByTaxGroup.map((monthData) => (
                 <Card key={monthData.monthKey}>
                   <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="capitalize">{monthData.month} {monthData.year}</span>
+                    <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="capitalize">{monthData.month} {monthData.year}</span>
+                        {monthData.has_exemption && (
+                          <Badge variant="outline" className="w-fit text-green-600 border-green-200 bg-green-50 text-xs font-normal">
+                            Isenção de venda de ações até R$ 20.000
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex gap-4 text-sm font-normal">
                         <span className={monthData.total_profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}>
                           L/P: {formatCurrencyBRL(monthData.total_profit_loss)}

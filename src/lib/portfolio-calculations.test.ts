@@ -19,7 +19,7 @@ describe('calculatePositions', () => {
     ];
 
     const positions = calculatePositions(trades);
-    
+
     expect(positions).toHaveLength(1);
     expect(positions[0].ticker).toBe('PETR4');
     expect(positions[0].quantity).toBe(100);
@@ -46,7 +46,7 @@ describe('calculatePositions', () => {
     ];
 
     const positions = calculatePositions(trades);
-    
+
     expect(positions).toHaveLength(1);
     expect(positions[0].quantity).toBe(200);
     expect(positions[0].avgPrice).toBe(35); // (3000 + 4000) / 200 = 35
@@ -79,7 +79,7 @@ describe('calculatePositions', () => {
     ];
 
     const positions = calculatePositions(trades);
-    
+
     expect(positions).toHaveLength(1);
     expect(positions[0].quantity).toBe(150); // 200 - 50
     // Total value was 7000. Sold 50 shares. Cost removed: 50 * 35 = 1750.
@@ -115,12 +115,12 @@ describe('calculatePositions', () => {
     ];
 
     const positions = calculatePositions(trades);
-    
+
     // Process chronologically:
     // 1. Buy 100 @ 60 = 6000
     // 2. Buy 100 @ 70 = 7000 -> Total: 200 @ 13000 (avg: 65)
     // 3. Sell 50 -> removes 50 * 65 = 3250 -> Total: 150 @ 9750 (avg: 65)
-    
+
     expect(positions).toHaveLength(1);
     expect(positions[0].quantity).toBe(150);
     expect(positions[0].avgPrice).toBe(65);
@@ -153,10 +153,62 @@ describe('calculatePositions', () => {
     ];
 
     const positions = calculatePositions(trades);
-    
+
     // WEGE3 should be filtered out
     expect(positions).toHaveLength(1);
     expect(positions[0].ticker).toBe('ITUB4');
     expect(positions[0].quantity).toBe(100);
+  });
+
+  it('should handle splits (desdobramentos) by increasing quantity and preserving total value', () => {
+    const trades: TradeForCalculation[] = [
+      {
+        ticker: 'ALZR11',
+        quantity: 170,
+        total_value: 17000,
+        movement_type: 'BUY',
+        trade_date: '2023-01-01',
+      },
+      {
+        ticker: 'ALZR11',
+        quantity: 1530, // 1 for 10 split gives 9 new shares for each 1: 170 * 9 = 1530
+        total_value: 0,
+        movement_type: 'SPLIT',
+        trade_date: '2025-05-06',
+      },
+    ];
+
+    const positions = calculatePositions(trades);
+
+    expect(positions).toHaveLength(1);
+    expect(positions[0].quantity).toBe(1700);
+    expect(positions[0].totalValue).toBe(17000);
+    expect(positions[0].avgPrice).toBe(10); // 17000 / 1700
+  });
+
+  it('should handle reverse splits (grupamentos) by decreasing quantity and preserving total value', () => {
+    const trades: TradeForCalculation[] = [
+      {
+        ticker: 'OIBR3',
+        quantity: 1000,
+        total_value: 1000,
+        movement_type: 'BUY',
+        trade_date: '2023-01-01',
+      },
+      {
+        ticker: 'OIBR3',
+        quantity: 900, // 10 to 1 reverse split removes 9 shares for each 10: 100 * 9 = 900 removed
+        total_value: 0,
+        movement_type: 'REVERSE_SPLIT',
+        trade_date: '2025-05-06',
+      },
+    ];
+
+    const positions = calculatePositions(trades);
+
+    expect(positions).toHaveLength(1);
+    expect(positions[0].quantity).toBe(100);
+    expect(positions[0].totalValue).toBe(1000);
+    expect(positions[0].avgPrice).toBe(10); // 1000 / 100
   });
 });
