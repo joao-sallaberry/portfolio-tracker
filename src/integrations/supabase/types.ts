@@ -59,6 +59,7 @@ export type Database = {
       trade_operations: {
         Row: {
           created_at: string
+          exclude_from_ir: boolean
           id: string
           institution: string
           market: string
@@ -74,6 +75,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          exclude_from_ir?: boolean
           id?: string
           institution: string
           market: string
@@ -89,6 +91,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          exclude_from_ir?: boolean
           id?: string
           institution?: string
           market?: string

@@ -30,6 +30,7 @@ CREATE TABLE public.trade_operations (
   quantity NUMERIC NOT NULL,
   price NUMERIC NOT NULL,
   total_value NUMERIC NOT NULL,
+  exclude_from_ir BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
