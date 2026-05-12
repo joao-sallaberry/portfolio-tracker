@@ -57,9 +57,11 @@ interface SaleWithProfit {
   month: string;
   year: number;
   excluded_from_ir: boolean;
-  /** Lucro/prejuízo contábil quando excluded_from_ir (só exibição) */
+  /** Economic P&L when excluded_from_ir (display only) */
   economic_profit_loss?: number;
   economic_tax_due?: number;
+  /** Sale without book position (quantity would go negative) */
+  oversold_position?: boolean;
 }
 
 interface MonthlyTotals {
@@ -210,11 +212,11 @@ export default function ImpostoRenda() {
       const value = Number(trade.total_value);
 
       if (trade.movement_type === 'BUY' || trade.movement_type === 'BONUS') {
-        // Compra e Bonificação: aumenta quantidade e custo total
+        // BUY and BONUS: increase quantity and total cost
         totalCost += value;
         runningQuantity += qty;
       } else if (trade.movement_type === 'SELL' || trade.movement_type === 'AMORTIZATION') {
-        // Venda e Amortização: reduz quantidade proporcionalmente
+        // SELL and AMORTIZATION: reduce quantity proportionally
         runningQuantity -= qty;
         if (runningQuantity > 0) {
           const avgPrice = totalCost / (runningQuantity + qty);
@@ -224,10 +226,10 @@ export default function ImpostoRenda() {
           runningQuantity = 0;
         }
       } else if (trade.movement_type === 'SPLIT') {
-        // Desdobramento: aumenta quantidade, mantém custo total, recalcula preço médio
+        // SPLIT: increase quantity, keep total cost, recalc average price
         runningQuantity += qty;
       } else if (trade.movement_type === 'REVERSE_SPLIT') {
-        // Grupamento: diminui quantidade, mantém custo total, recalcula preço médio
+        // REVERSE_SPLIT: decrease quantity, keep total cost, recalc average price
         runningQuantity -= qty;
         if (runningQuantity <= 0) {
           runningQuantity = 0;
@@ -279,11 +281,11 @@ export default function ImpostoRenda() {
       const value = Number(trade.total_value);
 
       if (trade.movement_type === 'BUY' || trade.movement_type === 'BONUS') {
-        // Compra e Bonificação: aumenta quantidade e custo total
+        // BUY and BONUS: increase quantity and total cost
         totalCost += value;
         runningQuantity += qty;
       } else if (trade.movement_type === 'SELL' || trade.movement_type === 'AMORTIZATION') {
-        // Venda e Amortização: reduz quantidade proporcionalmente
+        // SELL and AMORTIZATION: reduce quantity proportionally
         runningQuantity -= qty;
         if (runningQuantity > 0) {
           // Adjust total cost proportionally
@@ -294,10 +296,10 @@ export default function ImpostoRenda() {
           runningQuantity = 0;
         }
       } else if (trade.movement_type === 'SPLIT') {
-        // Desdobramento: aumenta quantidade, mantém custo total
+        // SPLIT: increase quantity, keep total cost
         runningQuantity += qty;
       } else if (trade.movement_type === 'REVERSE_SPLIT') {
-        // Grupamento: diminui quantidade, mantém custo total
+        // REVERSE_SPLIT: decrease quantity, keep total cost
         runningQuantity -= qty;
         if (runningQuantity <= 0) {
           runningQuantity = 0;
@@ -370,9 +372,12 @@ export default function ImpostoRenda() {
           if (tradeYear === yearFilter) {
             const salePrice = Number(trade.price);
             const profitLoss = (salePrice - avgPriceBeforeSale) * qty;
+            const runningAfterSale = runningQuantity - qty;
+            const oversoldPosition = runningAfterSale < 0;
 
             // Tax rate from group config
-            const taxDue = profitLoss > 0 ? profitLoss * groupConfig.rate : 0;
+            const rawTaxDue = profitLoss > 0 ? profitLoss * groupConfig.rate : 0;
+            const taxDue = oversoldPosition ? 0 : rawTaxDue;
             const excludedFromIr = Boolean(trade.exclude_from_ir);
 
             const month = tradeDate ? tradeDate.toLocaleString('pt-BR', { month: 'long' }) : '';
@@ -392,7 +397,8 @@ export default function ImpostoRenda() {
               year,
               excluded_from_ir: excludedFromIr,
               economic_profit_loss: excludedFromIr ? profitLoss : undefined,
-              economic_tax_due: excludedFromIr ? taxDue : undefined,
+              economic_tax_due: excludedFromIr ? (oversoldPosition ? 0 : rawTaxDue) : undefined,
+              oversold_position: oversoldPosition,
             });
           }
 
@@ -464,6 +470,38 @@ export default function ImpostoRenda() {
       }
     });
 
+    // Sort sales within each month by date (then id) before tax netting and exemption
+    monthlyMap.forEach((monthData) => {
+      monthData.sales.sort((a, b) => {
+        const dateA = parseISODateLocal(a.trade_date);
+        const dateB = parseISODateLocal(b.trade_date);
+        const t = (dateA?.getTime() ?? 0) - (dateB?.getTime() ?? 0);
+        if (t !== 0) return t;
+        return a.id.localeCompare(b.id);
+      });
+    });
+
+    // Tax only on profit above month-to-date accumulated P&L (same tax group/year), in chronological order
+    const taxRate = groupConfig.rate;
+    monthlyMap.forEach((monthData) => {
+      let monthCumulativePL = 0;
+      for (const sale of monthData.sales) {
+        if (sale.excluded_from_ir) continue;
+        if (sale.oversold_position) {
+          monthCumulativePL += sale.profit_loss;
+          continue;
+        }
+        if (sale.profit_loss > 0 && taxRate > 0) {
+          const taxableGain = Math.max(0, Math.min(sale.profit_loss, monthCumulativePL + sale.profit_loss));
+          sale.tax_due = taxableGain * taxRate;
+        } else {
+          sale.tax_due = 0;
+        }
+        monthCumulativePL += sale.profit_loss;
+      }
+      monthData.total_tax_due = monthData.sales.reduce((acc, s) => acc + s.tax_due, 0);
+    });
+
     // Check for exemption
     monthlyMap.forEach((monthData) => {
       if (selectedTaxGroup === 'Ações e ETFs' && monthData.total_acao_sales! > 0 && monthData.total_acao_sales! <= 20000 && monthData.total_acao_profit! > 0) {
@@ -478,15 +516,6 @@ export default function ImpostoRenda() {
         });
         monthData.total_tax_due -= acaoTaxToRemove;
       }
-    });
-
-    // Sort sales within each month by date
-    monthlyMap.forEach((monthData) => {
-      monthData.sales.sort((a, b) => {
-        const dateA = parseISODateLocal(a.trade_date);
-        const dateB = parseISODateLocal(b.trade_date);
-        return (dateA?.getTime() ?? 0) - (dateB?.getTime() ?? 0);
-      });
     });
 
     // Sort by month and calculate accumulated loss
