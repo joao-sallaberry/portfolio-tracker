@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
 import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { TrendingUp, TrendingDown, CalendarIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -18,6 +20,7 @@ import { cn } from '@/lib/utils';
 const ITEMS_PER_PAGE = 50;
 
 export default function Negociacoes() {
+  const queryClient = useQueryClient();
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -53,6 +56,16 @@ export default function Negociacoes() {
       }
       
       return allRecords;
+    },
+  });
+
+  const toggleExcludeFromIr = useMutation({
+    mutationFn: async ({ id, exclude_from_ir }: { id: string; exclude_from_ir: boolean }) => {
+      const { error } = await supabase.from('trade_operations').update({ exclude_from_ir }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trade-operations'] });
     },
   });
 
@@ -312,6 +325,9 @@ export default function Negociacoes() {
                       <TableHead className="text-right">Quantidade</TableHead>
                       <TableHead className="text-right">Preço</TableHead>
                       <TableHead className="text-right">Valor Total</TableHead>
+                      <TableHead className="min-w-[7.5rem] text-center whitespace-normal leading-tight">
+                        Excluir do IR
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -329,6 +345,34 @@ export default function Negociacoes() {
                         <TableCell className="text-right font-mono">{formatNumber(Number(trade.quantity), 0)}</TableCell>
                         <TableCell className="text-right font-mono">{formatCurrencyBRL(Number(trade.price))}</TableCell>
                         <TableCell className="text-right font-mono font-medium">{formatCurrencyBRL(Number(trade.total_value))}</TableCell>
+                        <TableCell className="text-center">
+                          {trade.movement_type === 'SELL' ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex justify-center">
+                                  <Switch
+                                    checked={Boolean(trade.exclude_from_ir)}
+                                    disabled={toggleExcludeFromIr.isPending}
+                                    onCheckedChange={(checked) =>
+                                      toggleExcludeFromIr.mutate({ id: trade.id, exclude_from_ir: checked })
+                                    }
+                                    aria-label="Excluir venda do cálculo de Imposto de Renda"
+                                    className={cn(
+                                      'data-[state=checked]:border-destructive data-[state=checked]:bg-destructive',
+                                    )}
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs">
+                                Quando ativo, a venda aparece em Imposto de Renda mas não entra em totais, isenção de
+                                R$ 20 mil nem prejuízo acumulado. O preço médio do ativo continua sendo calculado com
+                                esta venda.
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

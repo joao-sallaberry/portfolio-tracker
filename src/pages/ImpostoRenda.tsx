@@ -56,6 +56,10 @@ interface SaleWithProfit {
   tax_due: number;
   month: string;
   year: number;
+  excluded_from_ir: boolean;
+  /** Lucro/prejuízo contábil quando excluded_from_ir (só exibição) */
+  economic_profit_loss?: number;
+  economic_tax_due?: number;
 }
 
 interface MonthlyTotals {
@@ -369,6 +373,7 @@ export default function ImpostoRenda() {
 
             // Tax rate from group config
             const taxDue = profitLoss > 0 ? profitLoss * groupConfig.rate : 0;
+            const excludedFromIr = Boolean(trade.exclude_from_ir);
 
             const month = tradeDate ? tradeDate.toLocaleString('pt-BR', { month: 'long' }) : '';
             const year = tradeDate?.getFullYear() ?? 0;
@@ -381,10 +386,13 @@ export default function ImpostoRenda() {
               sale_price: salePrice,
               total_sale_value: value,
               average_price_at_sale: avgPriceBeforeSale,
-              profit_loss: profitLoss,
-              tax_due: taxDue,
+              profit_loss: excludedFromIr ? 0 : profitLoss,
+              tax_due: excludedFromIr ? 0 : taxDue,
               month,
               year,
+              excluded_from_ir: excludedFromIr,
+              economic_profit_loss: excludedFromIr ? profitLoss : undefined,
+              economic_tax_due: excludedFromIr ? taxDue : undefined,
             });
           }
 
@@ -442,14 +450,17 @@ export default function ImpostoRenda() {
       }
 
       const monthData = monthlyMap.get(monthKey)!;
-      monthData.total_sales += sale.total_sale_value;
-      monthData.total_profit_loss += sale.profit_loss;
-      monthData.total_tax_due += sale.tax_due;
       monthData.sales.push(sale);
-      
-      if (classifyAsset(sale.ticker) === 'Ação') {
-        monthData.total_acao_sales! += sale.total_sale_value;
-        monthData.total_acao_profit! += sale.profit_loss;
+
+      if (!sale.excluded_from_ir) {
+        monthData.total_sales += sale.total_sale_value;
+        monthData.total_profit_loss += sale.profit_loss;
+        monthData.total_tax_due += sale.tax_due;
+
+        if (classifyAsset(sale.ticker) === 'Ação') {
+          monthData.total_acao_sales! += sale.total_sale_value;
+          monthData.total_acao_profit! += sale.profit_loss;
+        }
       }
     });
 
@@ -460,7 +471,7 @@ export default function ImpostoRenda() {
         
         let acaoTaxToRemove = 0;
         monthData.sales.forEach(sale => {
-           if (classifyAsset(sale.ticker) === 'Ação') {
+           if (!sale.excluded_from_ir && classifyAsset(sale.ticker) === 'Ação') {
                acaoTaxToRemove += sale.tax_due;
                sale.tax_due = 0; 
            }
@@ -698,18 +709,47 @@ export default function ImpostoRenda() {
                       </TableHeader>
                       <TableBody>
                         {monthData.sales.map((sale) => (
-                          <TableRow key={sale.id}>
-                            <TableCell>{formatDateBR(sale.trade_date)}</TableCell>
+                          <TableRow
+                            key={sale.id}
+                            className={sale.excluded_from_ir ? 'bg-muted/40' : undefined}
+                          >
+                            <TableCell>
+                              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                                <span>{formatDateBR(sale.trade_date)}</span>
+                                {sale.excluded_from_ir && (
+                                  <Badge variant="outline" className="w-fit text-xs font-normal text-muted-foreground">
+                                    Excluída do IR
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="font-medium">{sale.ticker}</TableCell>
                             <TableCell className="text-right">{formatNumber(sale.quantity, 0)}</TableCell>
                             <TableCell className="text-right">{formatCurrencyBRL(sale.sale_price)}</TableCell>
                             <TableCell className="text-right">{formatCurrencyBRL(sale.average_price_at_sale)}</TableCell>
                             <TableCell className="text-right">{formatCurrencyBRL(sale.total_sale_value)}</TableCell>
-                            <TableCell className={`text-right font-medium ${sale.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {formatCurrencyBRL(sale.profit_loss)}
+                            <TableCell className="text-right">
+                              {sale.excluded_from_ir && sale.economic_profit_loss !== undefined ? (
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span
+                                    className={`font-medium ${sale.economic_profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                                  >
+                                    {formatCurrencyBRL(sale.economic_profit_loss)}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">fora do cálculo</span>
+                                </div>
+                              ) : (
+                                <span className={`font-medium ${sale.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {formatCurrencyBRL(sale.profit_loss)}
+                                </span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right text-orange-600">
-                              {formatCurrencyBRL(sale.tax_due)}
+                              {sale.excluded_from_ir ? (
+                                <span className="text-muted-foreground">—</span>
+                              ) : (
+                                formatCurrencyBRL(sale.tax_due)
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
