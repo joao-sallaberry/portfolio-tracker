@@ -215,8 +215,8 @@ export default function ImpostoRenda() {
         // BUY and BONUS: increase quantity and total cost
         totalCost += value;
         runningQuantity += qty;
-      } else if (trade.movement_type === 'SELL' || trade.movement_type === 'AMORTIZATION') {
-        // SELL and AMORTIZATION: reduce quantity proportionally
+      } else if (trade.movement_type === 'SELL') {
+        // SELL: reduce quantity proportionally
         runningQuantity -= qty;
         if (runningQuantity > 0) {
           const avgPrice = totalCost / (runningQuantity + qty);
@@ -225,6 +225,8 @@ export default function ImpostoRenda() {
           totalCost = 0;
           runningQuantity = 0;
         }
+      } else if (trade.movement_type === 'AMORTIZATION') {
+        totalCost -= value;
       } else if (trade.movement_type === 'SPLIT') {
         // SPLIT: increase quantity, keep total cost, recalc average price
         runningQuantity += qty;
@@ -284,8 +286,8 @@ export default function ImpostoRenda() {
         // BUY and BONUS: increase quantity and total cost
         totalCost += value;
         runningQuantity += qty;
-      } else if (trade.movement_type === 'SELL' || trade.movement_type === 'AMORTIZATION') {
-        // SELL and AMORTIZATION: reduce quantity proportionally
+      } else if (trade.movement_type === 'SELL') {
+        // SELL: reduce quantity proportionally
         runningQuantity -= qty;
         if (runningQuantity > 0) {
           // Adjust total cost proportionally
@@ -295,6 +297,8 @@ export default function ImpostoRenda() {
           totalCost = 0;
           runningQuantity = 0;
         }
+      } else if (trade.movement_type === 'AMORTIZATION') {
+        totalCost -= value;
       } else if (trade.movement_type === 'SPLIT') {
         // SPLIT: increase quantity, keep total cost
         runningQuantity += qty;
@@ -411,13 +415,7 @@ export default function ImpostoRenda() {
             runningQuantity = 0;
           }
         } else if (trade.movement_type === 'AMORTIZATION') {
-          runningQuantity -= qty;
-          if (runningQuantity > 0) {
-            totalCost = (totalCost / (runningQuantity + qty)) * runningQuantity;
-          } else {
-            totalCost = 0;
-            runningQuantity = 0;
-          }
+          totalCost -= value;
         } else if (trade.movement_type === 'SPLIT') {
           runningQuantity += qty;
         } else if (trade.movement_type === 'REVERSE_SPLIT') {
