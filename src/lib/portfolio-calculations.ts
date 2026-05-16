@@ -36,10 +36,12 @@ export function calculatePositions(trades: TradeForCalculation[] | null | undefi
       if (trade.movement_type === 'BUY' || trade.movement_type === 'BONUS' || trade.movement_type === 'SPLIT') {
         pos.currentQty += qty;
         pos.currentValue += total;
-      } else if (trade.movement_type === 'SELL' || trade.movement_type === 'AMORTIZATION') {
+      } else if (trade.movement_type === 'SELL') {
         const avgPrice = pos.currentQty > 0 ? pos.currentValue / pos.currentQty : 0;
         pos.currentQty -= qty;
         pos.currentValue -= (avgPrice * qty);
+      } else if (trade.movement_type === 'AMORTIZATION') {
+        pos.currentValue -= total;
       } else if (trade.movement_type === 'REVERSE_SPLIT') {
         pos.currentQty -= qty;
       }

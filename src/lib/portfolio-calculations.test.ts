@@ -211,4 +211,30 @@ describe('calculatePositions', () => {
     expect(positions[0].totalValue).toBe(1000);
     expect(positions[0].avgPrice).toBe(10); // 1000 / 100
   });
+
+  it('should handle amortization by decreasing total value and preserving quantity', () => {
+    const trades: TradeForCalculation[] = [
+      {
+        ticker: 'MXRF11',
+        quantity: 100,
+        total_value: 1000,
+        movement_type: 'BUY',
+        trade_date: '2023-01-01',
+      },
+      {
+        ticker: 'MXRF11',
+        quantity: 0, 
+        total_value: 50,
+        movement_type: 'AMORTIZATION',
+        trade_date: '2023-02-01',
+      },
+    ];
+
+    const positions = calculatePositions(trades);
+
+    expect(positions).toHaveLength(1);
+    expect(positions[0].quantity).toBe(100);
+    expect(positions[0].totalValue).toBe(950);
+    expect(positions[0].avgPrice).toBe(9.5);
+  });
 });
