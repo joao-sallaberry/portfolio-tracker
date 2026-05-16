@@ -12,7 +12,11 @@ import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from
 import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { TrendingUp, TrendingDown, CalendarIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { TrendingUp, TrendingDown, CalendarIcon, X, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -21,12 +25,14 @@ const ITEMS_PER_PAGE = 50;
 
 export default function Negociacoes() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [tickerFilter, setTickerFilter] = useState<string>('all');
   const [classFilter, setClassFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [editingTrade, setEditingTrade] = useState<any | null>(null);
 
   const { data: trades, isLoading } = useQuery({
     queryKey: ['trade-operations', 'v2'],
@@ -68,6 +74,44 @@ export default function Negociacoes() {
       queryClient.invalidateQueries({ queryKey: ['trade-operations'] });
     },
   });
+
+  const updateTrade = useMutation({
+    mutationFn: async (updatedTrade: any) => {
+      const { id, trade_date, movement_type, movement_type_raw, ticker, institution, quantity, price, total_value } = updatedTrade;
+      const payload = {
+        trade_date,
+        movement_type,
+        movement_type_raw,
+        ticker,
+        institution,
+        quantity,
+        price,
+        total_value,
+      };
+      const { error } = await supabase.from('trade_operations').update(payload).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trade-operations'] });
+      toast({
+        title: "Negociação atualizada",
+        description: "A negociação foi salva com sucesso.",
+      });
+      setEditingTrade(null);
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a negociação.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingTrade) updateTrade.mutate(editingTrade);
+  };
 
   // Extract unique values for filters
   const uniqueTickers = useMemo(() => {
@@ -328,6 +372,7 @@ export default function Negociacoes() {
                       <TableHead className="min-w-[7.5rem] text-center whitespace-normal leading-tight">
                         Excluir do IR
                       </TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -372,6 +417,15 @@ export default function Negociacoes() {
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingTrade({ ...trade })}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -436,6 +490,101 @@ export default function Negociacoes() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!editingTrade} onOpenChange={(open) => !open && setEditingTrade(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Negociação</DialogTitle>
+          </DialogHeader>
+          {editingTrade && (
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Data</Label>
+                  <Input 
+                    type="date" 
+                    value={editingTrade.trade_date ? editingTrade.trade_date.split('T')[0] : ''} 
+                    onChange={(e) => setEditingTrade({ ...editingTrade, trade_date: e.target.value })} 
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select 
+                    value={editingTrade.movement_type} 
+                    onValueChange={(val) => setEditingTrade({ 
+                      ...editingTrade, 
+                      movement_type: val, 
+                      movement_type_raw: getTypeLabel(val) 
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BUY">Compra</SelectItem>
+                      <SelectItem value="SELL">Venda</SelectItem>
+                      <SelectItem value="BONUS">Bonificação</SelectItem>
+                      <SelectItem value="AMORTIZATION">Amortização</SelectItem>
+                      <SelectItem value="SPLIT">Desdobramento</SelectItem>
+                      <SelectItem value="REVERSE_SPLIT">Grupamento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Ativo</Label>
+                  <Input 
+                    value={editingTrade.ticker} 
+                    onChange={(e) => setEditingTrade({ ...editingTrade, ticker: e.target.value.toUpperCase() })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Instituição</Label>
+                  <Input 
+                    value={editingTrade.institution} 
+                    onChange={(e) => setEditingTrade({ ...editingTrade, institution: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Quantidade</Label>
+                  <Input 
+                    type="number" 
+                    step="0.000001"
+                    value={editingTrade.quantity} 
+                    onChange={(e) => setEditingTrade({ ...editingTrade, quantity: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Preço</Label>
+                  <Input 
+                    type="number" 
+                    step="0.01"
+                    value={editingTrade.price} 
+                    onChange={(e) => setEditingTrade({ ...editingTrade, price: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label>Valor Total</Label>
+                  <Input 
+                    type="number" 
+                    step="0.01"
+                    value={editingTrade.total_value} 
+                    onChange={(e) => setEditingTrade({ ...editingTrade, total_value: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditingTrade(null)}>Cancelar</Button>
+                <Button type="submit" disabled={updateTrade.isPending}>Salvar</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
