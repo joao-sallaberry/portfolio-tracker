@@ -34,6 +34,7 @@ export default function Proventos() {
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [eventType, setEventType] = useState<string>('all');
   const [assetClass, setAssetClass] = useState<string>('all');
+  const [tickerFilter, setTickerFilter] = useState<string>('all');
   const [chartAssetClasses, setChartAssetClasses] = useState<AssetClass[]>([...ASSET_CLASSES]);
 
   const { data: dividends, isLoading } = useQuery({
@@ -67,6 +68,11 @@ export default function Proventos() {
     return [...new Set(dividends?.map(d => d.event_type) || [])].sort();
   }, [dividends]);
 
+  // Get unique tickers for the filter
+  const uniqueTickers = useMemo(() => {
+    return [...new Set(dividends?.map(d => d.ticker) || [])].sort();
+  }, [dividends]);
+
   // Filter dividends based on selected filters
   const filteredDividends = useMemo(() => {
     if (!dividends) return [];
@@ -84,9 +90,12 @@ export default function Proventos() {
       // Asset class filter
       if (assetClass !== 'all' && classifyAsset(d.ticker) !== assetClass) return false;
 
+      // Ticker filter
+      if (tickerFilter !== 'all' && d.ticker !== tickerFilter) return false;
+
       return true;
     });
-  }, [dividends, startDate, endDate, eventType, assetClass]);
+  }, [dividends, startDate, endDate, eventType, assetClass, tickerFilter]);
 
   const totalDividends = filteredDividends.reduce((sum, d) => sum + Number(d.net_value), 0);
   const currentYear = new Date().getFullYear();
@@ -94,13 +103,14 @@ export default function Proventos() {
     .filter(d => (parseISODateLocal(d.payment_date) ?? new Date(d.payment_date)).getFullYear() === currentYear)
     .reduce((sum, d) => sum + Number(d.net_value), 0);
 
-  const hasActiveFilters = startDate || endDate || eventType !== 'all' || assetClass !== 'all';
+  const hasActiveFilters = startDate || endDate || eventType !== 'all' || assetClass !== 'all' || tickerFilter !== 'all';
 
   const clearFilters = () => {
     setStartDate(undefined);
     setEndDate(undefined);
     setEventType('all');
     setAssetClass('all');
+    setTickerFilter('all');
   };
 
   // Chart data: monthly dividends grouped by asset class
@@ -336,6 +346,19 @@ export default function Proventos() {
                 />
               </PopoverContent>
             </Popover>
+
+            {/* Ticker Filter */}
+            <Select value={tickerFilter} onValueChange={setTickerFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Ativo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os ativos</SelectItem>
+                {uniqueTickers.map(ticker => (
+                  <SelectItem key={ticker} value={ticker}>{ticker}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* Event Type Filter */}
             <Select value={eventType} onValueChange={setEventType}>
