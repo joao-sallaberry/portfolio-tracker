@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -115,11 +115,11 @@ export default function Proventos() {
 
   // Chart data: monthly dividends grouped by asset class
   const monthlyChartData = useMemo(() => {
-    if (!dividends) return [];
+    if (!filteredDividends) return [];
 
     const monthlyData: Record<string, Record<AssetClass, number>> = {};
 
-    dividends.forEach(d => {
+    filteredDividends.forEach(d => {
       const paymentDate = parseISODateLocal(d.payment_date) ?? new Date(d.payment_date);
       const monthKey = format(paymentDate, 'yyyy-MM');
       const assetClass = classifyAsset(d.ticker) as AssetClass;
@@ -142,7 +142,7 @@ export default function Proventos() {
           ...values,
         };
       });
-  }, [dividends]);
+  }, [filteredDividends]);
 
   const toggleChartAssetClass = (assetClass: AssetClass) => {
     setChartAssetClasses(prev => 
@@ -443,6 +443,12 @@ export default function Proventos() {
                     </TableRow>
                   ))}
                 </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-right font-medium">Total</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary">{formatCurrencyBRL(totalDividends)}</TableCell>
+                  </TableRow>
+                </TableFooter>
               </Table>
             </div>
           )}
