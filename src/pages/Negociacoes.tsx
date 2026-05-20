@@ -282,54 +282,34 @@ export default function Negociacoes() {
               </Select>
 
               {/* Start Date Filter */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[140px] justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "dd/MM/yyyy") : "Data início"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={setStartDate}
-                    locale={ptBR}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <Input
+                type="date"
+                value={startDate ? format(startDate, "yyyy-MM-dd") : ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) {
+                    setStartDate(undefined);
+                  } else {
+                    setStartDate(new Date(val + 'T00:00:00'));
+                  }
+                }}
+                className={cn("w-[140px]", !startDate && "text-muted-foreground")}
+              />
 
               {/* End Date Filter */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[140px] justify-start text-left font-normal",
-                      !endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "dd/MM/yyyy") : "Data fim"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={setEndDate}
-                    locale={ptBR}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <Input
+                type="date"
+                value={endDate ? format(endDate, "yyyy-MM-dd") : ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) {
+                    setEndDate(undefined);
+                  } else {
+                    setEndDate(new Date(val + 'T00:00:00'));
+                  }
+                }}
+                className={cn("w-[140px]", !endDate && "text-muted-foreground")}
+              />
 
               {/* Clear Filters */}
               {hasActiveFilters && (
