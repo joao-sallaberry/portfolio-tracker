@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
@@ -366,56 +367,34 @@ export default function Proventos() {
             </Select>
 
             {/* Start Date Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[160px] justify-start text-left font-normal",
-                    !startDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "dd/MM/yyyy") : "Data inicial"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={handleStartDateChange}
-                  locale={ptBR}
-                  initialFocus
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+            <Input
+              type="date"
+              value={startDate ? format(startDate, "yyyy-MM-dd") : ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) {
+                  handleStartDateChange(undefined);
+                } else {
+                  handleStartDateChange(new Date(val + 'T00:00:00'));
+                }
+              }}
+              className={cn("w-[160px]", !startDate && "text-muted-foreground")}
+            />
 
             {/* End Date Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[160px] justify-start text-left font-normal",
-                    !endDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {endDate ? format(endDate, "dd/MM/yyyy") : "Data final"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={handleEndDateChange}
-                  locale={ptBR}
-                  initialFocus
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+            <Input
+              type="date"
+              value={endDate ? format(endDate, "yyyy-MM-dd") : ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) {
+                  handleEndDateChange(undefined);
+                } else {
+                  handleEndDateChange(new Date(val + 'T00:00:00'));
+                }
+              }}
+              className={cn("w-[160px]", !endDate && "text-muted-foreground")}
+            />
 
             {/* Ticker Filter */}
             <Select value={tickerFilter} onValueChange={setTickerFilter}>
