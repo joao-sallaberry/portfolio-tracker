@@ -32,6 +32,7 @@ const CHART_COLORS: Record<AssetClass, string> = {
 export default function Proventos() {
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
+  const [datePreset, setDatePreset] = useState<string>('all');
   const [eventType, setEventType] = useState<string>('all');
   const [assetClass, setAssetClass] = useState<string>('all');
   const [tickerFilter, setTickerFilter] = useState<string>('all');
@@ -76,7 +77,7 @@ export default function Proventos() {
   // Filter dividends based on selected filters
   const filteredDividends = useMemo(() => {
     if (!dividends) return [];
-    
+
     return dividends.filter(d => {
       const paymentDate = parseISODateLocal(d.payment_date) ?? new Date(d.payment_date);
 
@@ -108,9 +109,61 @@ export default function Proventos() {
   const clearFilters = () => {
     setStartDate(undefined);
     setEndDate(undefined);
+    setDatePreset('all');
     setEventType('all');
     setAssetClass('all');
     setTickerFilter('all');
+  };
+
+  const handleDatePresetChange = (preset: string) => {
+    setDatePreset(preset);
+    const now = new Date();
+    switch (preset) {
+      case 'all':
+        setStartDate(undefined);
+        setEndDate(undefined);
+        break;
+      case 'current_month':
+        setStartDate(new Date(now.getFullYear(), now.getMonth(), 1));
+        setEndDate(new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59));
+        break;
+      case 'last_month':
+        setStartDate(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+        setEndDate(new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59));
+        break;
+      case 'current_year':
+        setStartDate(new Date(now.getFullYear(), 0, 1));
+        setEndDate(new Date(now.getFullYear(), 11, 31, 23, 59, 59));
+        break;
+      case 'last_year':
+        setStartDate(new Date(now.getFullYear() - 1, 0, 1));
+        setEndDate(new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59));
+        break;
+      case 'past_year': {
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(now.getFullYear() - 1);
+        setStartDate(oneYearAgo);
+        setEndDate(now);
+        break;
+      }
+      case 'past_5_years': {
+        const fiveYearsAgo = new Date();
+        fiveYearsAgo.setFullYear(now.getFullYear() - 5);
+        setStartDate(fiveYearsAgo);
+        setEndDate(now);
+        break;
+      }
+    }
+  };
+
+  const handleStartDateChange = (date: Date | undefined) => {
+    setStartDate(date);
+    setDatePreset('custom');
+  };
+
+  const handleEndDateChange = (date: Date | undefined) => {
+    setEndDate(date);
+    setDatePreset('custom');
   };
 
   // Chart data: monthly dividends grouped by asset class
@@ -145,7 +198,7 @@ export default function Proventos() {
   }, [filteredDividends]);
 
   const toggleChartAssetClass = (assetClass: AssetClass) => {
-    setChartAssetClasses(prev => 
+    setChartAssetClasses(prev =>
       prev.includes(assetClass)
         ? prev.filter(c => c !== assetClass)
         : [...prev, assetClass]
@@ -295,6 +348,23 @@ export default function Proventos() {
         <CardContent className="space-y-4">
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-3">
+            {/* Date Preset Filter */}
+            <Select value={datePreset} onValueChange={handleDatePresetChange}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todo o período</SelectItem>
+                <SelectItem value="current_month">Mês atual</SelectItem>
+                <SelectItem value="last_month">Mês passado</SelectItem>
+                <SelectItem value="current_year">Ano atual</SelectItem>
+                <SelectItem value="last_year">Ano passado</SelectItem>
+                <SelectItem value="past_year">Último ano</SelectItem>
+                <SelectItem value="past_5_years">Últimos 5 anos</SelectItem>
+                <SelectItem value="custom" disabled className="hidden">Personalizado</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Start Date Filter */}
             <Popover>
               <PopoverTrigger asChild>
@@ -313,7 +383,7 @@ export default function Proventos() {
                 <Calendar
                   mode="single"
                   selected={startDate}
-                  onSelect={setStartDate}
+                  onSelect={handleStartDateChange}
                   locale={ptBR}
                   initialFocus
                   className="pointer-events-auto"
@@ -339,7 +409,7 @@ export default function Proventos() {
                 <Calendar
                   mode="single"
                   selected={endDate}
-                  onSelect={setEndDate}
+                  onSelect={handleEndDateChange}
                   locale={ptBR}
                   initialFocus
                   className="pointer-events-auto"
