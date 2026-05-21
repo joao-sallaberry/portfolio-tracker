@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
 import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
-import { Wallet, CalendarIcon, X } from 'lucide-react';
+import { Wallet, CalendarIcon, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -38,6 +38,7 @@ export default function Proventos() {
   const [assetClass, setAssetClass] = useState<string>('all');
   const [tickerFilter, setTickerFilter] = useState<string>('all');
   const [chartAssetClasses, setChartAssetClasses] = useState<AssetClass[]>([...ASSET_CLASSES]);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   const { data: dividends, isLoading } = useQuery({
     queryKey: ['dividend-events'],
@@ -98,6 +99,39 @@ export default function Proventos() {
       return true;
     });
   }, [dividends, startDate, endDate, eventType, assetClass, tickerFilter]);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedDividends = useMemo(() => {
+    if (!sortConfig) return filteredDividends;
+
+    return [...filteredDividends].sort((a, b) => {
+      let aValue: any = a[sortConfig.key as keyof typeof a];
+      let bValue: any = b[sortConfig.key as keyof typeof b];
+
+      // Custom values for sorting
+      if (sortConfig.key === 'assetClass') {
+        aValue = classifyAsset(a.ticker);
+        bValue = classifyAsset(b.ticker);
+      } else if (sortConfig.key === 'payment_date') {
+        aValue = new Date(a.payment_date).getTime();
+        bValue = new Date(b.payment_date).getTime();
+      } else if (['quantity', 'unit_price', 'net_value'].includes(sortConfig.key)) {
+        aValue = Number(aValue);
+        bValue = Number(bValue);
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredDividends, sortConfig]);
 
   const totalDividends = filteredDividends.reduce((sum, d) => sum + Number(d.net_value), 0);
   const currentYear = new Date().getFullYear();
@@ -468,18 +502,34 @@ export default function Proventos() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Ativo</TableHead>
-                    <TableHead>Classe</TableHead>
-                    <TableHead>Data Pagamento</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Instituição</TableHead>
-                    <TableHead className="text-right">Quantidade</TableHead>
-                    <TableHead className="text-right">Preço Unit.</TableHead>
-                    <TableHead className="text-right">Valor Líquido</TableHead>
+                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('ticker')}>
+                      <div className="flex items-center gap-1">Ativo {sortConfig?.key === 'ticker' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('assetClass')}>
+                      <div className="flex items-center gap-1">Classe {sortConfig?.key === 'assetClass' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('payment_date')}>
+                      <div className="flex items-center gap-1">Data Pagamento {sortConfig?.key === 'payment_date' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('event_type')}>
+                      <div className="flex items-center gap-1">Tipo {sortConfig?.key === 'event_type' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('institution')}>
+                      <div className="flex items-center gap-1">Instituição {sortConfig?.key === 'institution' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                    </TableHead>
+                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('quantity')}>
+                      <div className="flex items-center justify-end gap-1">Quantidade {sortConfig?.key === 'quantity' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                    </TableHead>
+                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('unit_price')}>
+                      <div className="flex items-center justify-end gap-1">Preço Unit. {sortConfig?.key === 'unit_price' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                    </TableHead>
+                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('net_value')}>
+                      <div className="flex items-center justify-end gap-1">Valor Líquido {sortConfig?.key === 'net_value' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDividends.map((dividend) => (
+                  {sortedDividends.map((dividend) => (
                     <TableRow key={dividend.id}>
                       <TableCell className="font-mono font-medium">{dividend.ticker}</TableCell>
                       <TableCell>{classifyAsset(dividend.ticker)}</TableCell>
