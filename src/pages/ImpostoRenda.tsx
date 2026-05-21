@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
 import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
+import { cn } from '@/lib/utils';
 import { Receipt, Calendar, TrendingUp, TrendingDown, Calculator } from 'lucide-react';
 
 interface PositionSnapshot {
@@ -547,8 +548,9 @@ export default function ImpostoRenda() {
         total_sales: acc.total_sales + month.total_sales,
         total_profit_loss: acc.total_profit_loss + month.total_profit_loss,
         total_tax_due: acc.total_tax_due + month.total_tax_due,
+        total_exempt_profit: acc.total_exempt_profit + (month.has_exemption ? (month.total_acao_profit || 0) : 0),
       }),
-      { total_sales: 0, total_profit_loss: 0, total_tax_due: 0 }
+      { total_sales: 0, total_profit_loss: 0, total_tax_due: 0, total_exempt_profit: 0 }
     );
   }, [salesByTaxGroup]);
 
@@ -652,7 +654,7 @@ export default function ImpostoRenda() {
           ) : (
             <>
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={cn("grid grid-cols-1 gap-4", selectedTaxGroup === 'Ações e ETFs' ? "md:grid-cols-4" : "md:grid-cols-3")}>
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base font-medium text-muted-foreground">
@@ -681,6 +683,22 @@ export default function ImpostoRenda() {
                     </p>
                   </CardContent>
                 </Card>
+
+                {selectedTaxGroup === 'Ações e ETFs' && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base font-medium text-muted-foreground flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                        Lucro Isento (Vendas &lt; 20k)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold text-green-600">
+                        {formatCurrencyBRL(grandTotals.total_exempt_profit)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
 
                 <Card>
                   <CardHeader className="pb-2">
