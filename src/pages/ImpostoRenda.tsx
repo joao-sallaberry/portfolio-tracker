@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useTradeOperations } from '@/hooks/use-portfolio-data';
+import { useTradeOperations, type TradeOperation } from '@/hooks/use-portfolio-data';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -52,6 +52,21 @@ interface TradeWithRunning {
   total_value: number;
   runningQuantity: number;
   runningAveragePrice: number;
+}
+
+// Position of one ticker after all its trades up to and including endDate
+function getPositionAtDate(trades: TradeOperation[], ticker: string, endDate: Date): PositionSnapshot {
+  const tickerTrades = trades.filter((t) => {
+    const tradeDate = parseISODateLocal(t.trade_date);
+    return t.ticker === ticker && tradeDate && tradeDate <= endDate;
+  });
+  const basis = calculateCostBasis(tickerTrades);
+
+  return {
+    quantity: basis.quantity,
+    totalValue: basis.totalCost,
+    averagePrice: getAveragePrice(basis),
+  };
 }
 
 export default function ImpostoRenda() {
@@ -158,25 +173,6 @@ export default function ImpostoRenda() {
     return Array.from(years).sort((a, b) => b - a);
   }, [trades]);
 
-  // Calculate position snapshot at a specific date
-  const getPositionAtDate = (endDate: Date): PositionSnapshot => {
-    if (!trades || !selectedTicker) {
-      return { quantity: 0, totalValue: 0, averagePrice: 0 };
-    }
-
-    const tickerTrades = trades.filter((t) => {
-      const tradeDate = parseISODateLocal(t.trade_date);
-      return t.ticker === selectedTicker && tradeDate && tradeDate <= endDate;
-    });
-    const basis = calculateCostBasis(tickerTrades);
-
-    return {
-      quantity: basis.quantity,
-      totalValue: basis.totalCost,
-      averagePrice: getAveragePrice(basis),
-    };
-  };
-
   // Position snapshots for selected year and previous year
   const yearSnapshots = useMemo(() => {
     if (!selectedYear || !selectedTicker) return null;
@@ -186,8 +182,8 @@ export default function ImpostoRenda() {
     const endOfPrevYear = new Date(year - 1, 11, 31, 23, 59, 59);
 
     return {
-      current: getPositionAtDate(endOfYear),
-      previous: getPositionAtDate(endOfPrevYear),
+      current: getPositionAtDate(trades ?? [], selectedTicker, endOfYear),
+      previous: getPositionAtDate(trades ?? [], selectedTicker, endOfPrevYear),
       currentYear: year,
       previousYear: year - 1,
     };

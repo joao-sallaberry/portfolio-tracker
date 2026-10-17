@@ -89,8 +89,8 @@ export default function Proventos() {
     if (!sortConfig) return filteredDividends;
 
     return [...filteredDividends].sort((a, b) => {
-      let aValue: any = a[sortConfig.key as keyof typeof a];
-      let bValue: any = b[sortConfig.key as keyof typeof b];
+      let aValue: string | number = a[sortConfig.key as keyof typeof a];
+      let bValue: string | number = b[sortConfig.key as keyof typeof b];
 
       // Custom values for sorting
       if (sortConfig.key === 'assetClass') {

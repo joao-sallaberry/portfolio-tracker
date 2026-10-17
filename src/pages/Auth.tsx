@@ -28,8 +28,8 @@ export default function Auth() {
             if (error) throw error;
 
             navigate("/");
-        } catch (error: any) {
-            toast.error(error.message || "Erro ao fazer login");
+        } catch (error) {
+            toast.error((error instanceof Error && error.message) || "Erro ao fazer login");
         } finally {
             setLoading(false);
         }
@@ -51,8 +51,8 @@ export default function Auth() {
             if (error) throw error;
 
             toast.success("Cadastro realizado! Verifique seu email.");
-        } catch (error: any) {
-            toast.error(error.message || 'Erro ao criar conta');
+        } catch (error) {
+            toast.error((error instanceof Error && error.message) || 'Erro ao criar conta');
         } finally {
             setLoading(false);
         }
