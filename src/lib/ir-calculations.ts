@@ -186,46 +186,38 @@ export function calculateSalesByTaxGroup(
     });
   });
 
-  // Tax only on profit above month-to-date accumulated P&L (same tax group/year), in chronological order
+  // Tax is due on the month's consolidated result: gains and losses of all sales in the
+  // month offset each other, regardless of their order.
   const taxRate = groupConfig.rate;
   monthlyMap.forEach((monthData) => {
-    let monthCumulativePL = 0;
-    for (const sale of monthData.sales) {
-      if (sale.excluded_from_ir) continue;
-      if (sale.oversold_position) {
-        monthCumulativePL += sale.profit_loss;
-        continue;
-      }
-      if (sale.profit_loss > 0 && taxRate > 0) {
-        const taxableGain = Math.max(0, Math.min(sale.profit_loss, monthCumulativePL + sale.profit_loss));
-        sale.tax_due = taxableGain * taxRate;
-      } else {
-        sale.tax_due = 0;
-      }
-      monthCumulativePL += sale.profit_loss;
-    }
-    monthData.total_tax_due = monthData.sales.reduce((acc, s) => acc + s.tax_due, 0);
-  });
-
-  // Check for exemption
-  monthlyMap.forEach((monthData) => {
-    if (
+    // Stock profit is exempt when the month's stock sales are up to R$20k
+    monthData.has_exemption =
       taxGroup === 'Ações e ETFs' &&
       monthData.total_acao_sales! > 0 &&
       monthData.total_acao_sales! <= MONTHLY_EXEMPTION_LIMIT &&
-      monthData.total_acao_profit! > 0
-    ) {
-      monthData.has_exemption = true;
+      monthData.total_acao_profit! > 0;
 
-      let acaoTaxToRemove = 0;
-      monthData.sales.forEach((sale) => {
-        if (!sale.excluded_from_ir && classifyAsset(sale.ticker) === 'Ação') {
-          acaoTaxToRemove += sale.tax_due;
-          sale.tax_due = 0;
-        }
-      });
-      monthData.total_tax_due -= acaoTaxToRemove;
-    }
+    const taxableSales = monthData.sales.filter(
+      (sale) => !sale.excluded_from_ir && !(monthData.has_exemption && classifyAsset(sale.ticker) === 'Ação')
+    );
+
+    // Oversold sales (missing purchase history) can reduce the base, but their gains are never taxed
+    const taxBase = Math.max(
+      0,
+      taxableSales.reduce((sum, sale) => sum + (sale.oversold_position ? Math.min(0, sale.profit_loss) : sale.profit_loss), 0)
+    );
+    const monthTax = taxBase * taxRate;
+
+    // Spread the month's tax over the taxed gains, so the per-sale column adds up to the month total
+    const taxedGains = taxableSales.filter((sale) => !sale.oversold_position && sale.profit_loss > 0);
+    const totalTaxedGains = taxedGains.reduce((sum, sale) => sum + sale.profit_loss, 0);
+    monthData.sales.forEach((sale) => {
+      sale.tax_due = 0;
+    });
+    taxedGains.forEach((sale) => {
+      sale.tax_due = totalTaxedGains > 0 ? monthTax * (sale.profit_loss / totalTaxedGains) : 0;
+    });
+    monthData.total_tax_due = monthTax;
   });
 
   // Sort by month and calculate accumulated loss

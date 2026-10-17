@@ -342,8 +342,8 @@ For the selected group and year:
 1. For each ticker, walk its trades in date order. For each `SELL` in the year, record `profit_loss = (sale_price − avg_price_before_sale) × quantity`.
 2. **Oversold sales** (quantity sold exceeds the held position) are flagged with `oversold_position` and never generate tax.
 3. **Sales excluded from IR** (`exclude_from_ir`) are listed but have `profit_loss` and `tax_due` zeroed. Their economic P&L is kept for display only. They still update the average price.
-4. Sales are grouped by month and sorted by date (then id). Within a month, tax is charged only on profit above the month-to-date cumulative P&L, so earlier losses in the month offset later gains.
-5. **R$20k exemption** (Ações e ETFs group only): if a month's total `Ação` sales (ETFs excluded) are ≤ R$20,000 and its `Ação` profit is positive, the tax on those sales is removed and the month is flagged `has_exemption`.
+4. Sales are grouped by month (listed by date, then id). Tax is charged on the month's **consolidated** result: `tax = rate × max(0, Σ P&L)` over the sales that count, regardless of their order. Losses of oversold sales reduce this base, but their gains are never taxed. The month's tax is spread over the taxed gains in proportion to each gain, so the per-sale column adds up to the month total.
+5. **R$20k exemption** (Ações e ETFs group only): if a month's total `Ação` sales (ETFs excluded) are ≤ R$20,000 and its `Ação` profit is positive, the month is flagged `has_exemption` and its `Ação` sales are left out of the tax base, so only the ETFs' result is taxed.
 6. **Accumulated loss** is carried across months, starting from a user-entered initial loss for the group/year (saved in `ir_initial_losses`, §4.3). Exempt profit does not offset it, and the balance never goes positive. It is **displayed only**: it does not reduce the tax due in later months (§14).
 
 Summary cards: Total Vendas, Lucro/Prejuízo, Imposto Devido, and Lucro Isento (exempt profit from months with `has_exemption`).
