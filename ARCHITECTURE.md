@@ -24,7 +24,7 @@ The entire UI is in **Brazilian Portuguese**.
 | Layer | Technology | Notes |
 |---|---|---|
 | **Build** | [Vite 8](vite.config.ts) + SWC plugin | Dev server on port `8080`, `@` → `./src` alias |
-| **Tests** | Vitest 4 | Unit tests for `calculatePositions()` (`npm run test`) |
+| **Tests** | Vitest 4 | Unit tests for the cost-basis logic (`npm run test`) |
 | **UI Framework** | React 18 (TypeScript, non-strict) | No SSR — pure SPA |
 | **Routing** | `react-router-dom` v6 | Client-side routing |
 | **Styling** | TailwindCSS 3 + `tailwindcss-animate` | Theme defined in [index.css](src/index.css) with light/dark mode CSS variables |
@@ -61,7 +61,7 @@ portfolio-tracker/
     │   ├── client.ts           # Supabase client singleton
     │   └── types.ts            # Generated DB types
     ├── lib/
-    │   ├── portfolio-calculations.ts       # calculatePositions() for Posição
+    │   ├── portfolio-calculations.ts       # Cost basis / average price (shared)
     │   ├── portfolio-calculations.test.ts  # Vitest unit tests
     │   ├── formatters.ts       # BRL currency, dates, number parsing
     │   ├── asset-classifier.ts # Ticker → asset class lookup
@@ -245,14 +245,19 @@ Five CSV files under `src/data/` are imported at build time (Vite `?raw`) and pa
 
 ## 9. Business Logic
 
-### 9.0 Cost Basis
+### 9.0 Cost Basis (shared)
 
-Average price uses the weighted average cost method. It is implemented **four times**:
+All average-price calculations go through [portfolio-calculations.ts](src/lib/portfolio-calculations.ts) (weighted average cost method):
 
-- `calculatePositions(trades)` in [portfolio-calculations.ts](src/lib/portfolio-calculations.ts), used by Posição and covered by `portfolio-calculations.test.ts`.
-- Three inline loops in [ImpostoRenda.tsx](src/pages/ImpostoRenda.tsx): monthly sales (Tab 1), year-end snapshots and per-asset history (Tab 2).
+| Function | Purpose |
+|---|---|
+| `applyTradeToCostBasis(basis, trade)` | Pure reducer: applies one trade to `{ quantity, totalCost }` |
+| `calculateCostBasis(trades)` | Sorts one ticker's trades by date and folds them |
+| `calculatePositions(trades)` | Per-ticker positions with asset class, filtered to `quantity > 0` |
+| `sortTradesByDate(trades)` | Stable ascending sort (same-day trades keep input order) |
+| `getAveragePrice(basis)` | `totalCost / quantity`, or 0 |
 
-Each one walks a ticker's trades in date order and applies these rules:
+Rules per movement type:
 
 | Movement | Quantity | Total cost |
 |---|---|---|
@@ -262,12 +267,7 @@ Each one walks a ticker's trades in date order and applies these rules:
 | `SPLIT` | `+ qty` | unchanged (average diluted) |
 | `REVERSE_SPLIT` | `− qty` | unchanged (average concentrated) |
 
-The copies differ in two edge cases:
-
-- **Oversold position:** the IR loops reset the position to empty when a `SELL` or `REVERSE_SPLIT` takes the quantity to zero or below. `calculatePositions` lets the quantity go negative, so an oversold quantity is subtracted from later buys.
-- **Splits:** `calculatePositions` also adds a `SPLIT` row's `total_value` to the cost. B3 split rows normally have `total_value = 0`, so this rarely matters.
-
-A change to how a movement type affects quantity or cost must be made in all four places.
+A `SELL` or `REVERSE_SPLIT` that takes the quantity to zero or below resets the position to empty, so an oversold quantity is not carried into later buys. Unknown types leave the basis untouched. These rules are covered by `portfolio-calculations.test.ts`.
 
 ### 9.1 Dashboard — [Index.tsx](src/pages/Index.tsx)
 
@@ -284,7 +284,7 @@ A change to how a movement type affects quantity or cost must be made in all fou
 2. **Distribuição do Portfólio** — pie chart of net invested value per `AssetClass`.
 3. **Proventos por Ativo (Top 8)** — horizontal bar chart of top dividend-paying tickers.
 
-The dashboard does **not** use any of the cost-basis implementations (see §14).
+The dashboard does **not** use the shared cost basis (see §14).
 
 ### 9.2 Negociações — [Negociacoes.tsx](src/pages/Negociacoes.tsx)
 
@@ -310,7 +310,7 @@ Uses `calculatePositions()` (§9.0). Positions are grouped by asset class (Açõ
 
 ### 9.5 Imposto de Renda — [ImpostoRenda.tsx](src/pages/ImpostoRenda.tsx)
 
-Two tabs. Each computes the cost basis with its own inline loop (§9.0).
+Two tabs, both built on the shared cost basis (§9.0).
 
 #### Tab 1: "Vendas por Classe" (Sales by Tax Group)
 
@@ -412,7 +412,7 @@ graph LR
 
 1. **No backend logic:** average price, tax computation and deduplication all run **client-side**. There are no Edge Functions, stored procedures or views.
 2. **Full data fetch:** no server-side filtering, aggregation or pagination beyond React Query's cache.
-3. **Duplicated cost-basis logic:** Posição uses `calculatePositions()` (unit-tested), while the IR page has three inline copies of the same rules (§9.0).
+3. **Single cost-basis implementation:** Posição and both IR tabs share `applyTradeToCostBasis()`, which is unit-tested.
 4. **Static asset classification:** determined at build time from bundled CSVs.
 5. **Application-only deduplication:** frequency-map matching before insert; the DB allows duplicates on purpose.
 6. **Environment:** `.env` is gitignored; `.env.example` lists the required `VITE_SUPABASE_*` variables. Every `VITE_` variable is embedded in the client bundle, so only the publishable key belongs there.
@@ -434,6 +434,5 @@ graph LR
 | **SEO / Meta tags** | `index.html` has a generic description, and `og:image` still points to Lovable's default image. |
 | **Form validation** | `zod` and `react-hook-form` are unused. Forms use raw `useState`. |
 | **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |
-| **Duplicated average cost** | Four implementations of the cost basis with slightly different edge-case behavior (§9.0). Posição and IR can disagree for oversold positions. |
-| **Test coverage** | Only `calculatePositions()` is tested. The IR cost-basis loops, parsers, deduplication and IR month/exemption logic are not. |
+| **Test coverage** | Only `portfolio-calculations.ts` is tested. Parsers, deduplication and IR month/exemption logic are not. |
 | **CSV data freshness** | Asset classification CSVs are static snapshots. New listings require manual updates. |

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePositions, type TradeForCalculation } from './portfolio-calculations';
+import {
+  applyTradeToCostBasis,
+  calculateCostBasis,
+  calculatePositions,
+  EMPTY_COST_BASIS,
+  getAveragePrice,
+  type TradeForCalculation,
+} from './portfolio-calculations';
 
 describe('calculatePositions', () => {
   it('should return empty array for null or empty trades', () => {
@@ -236,5 +243,43 @@ describe('calculatePositions', () => {
     expect(positions[0].quantity).toBe(100);
     expect(positions[0].totalValue).toBe(950);
     expect(positions[0].avgPrice).toBe(9.5);
+  });
+});
+
+describe('applyTradeToCostBasis', () => {
+  const trade = (movement_type: string, quantity: number, total_value: number) => ({ movement_type, quantity, total_value });
+
+  it('keeps the average price when selling part of the position', () => {
+    const basis = applyTradeToCostBasis({ quantity: 200, totalCost: 7000 }, trade('SELL', 50, 2500));
+    expect(basis).toEqual({ quantity: 150, totalCost: 5250 });
+    expect(getAveragePrice(basis)).toBe(35);
+  });
+
+  it('resets the position when a sale exceeds the held quantity', () => {
+    expect(applyTradeToCostBasis({ quantity: 100, totalCost: 3000 }, trade('SELL', 150, 6000))).toEqual(EMPTY_COST_BASIS);
+  });
+
+  it('resets the position when a reverse split removes all shares', () => {
+    expect(applyTradeToCostBasis({ quantity: 100, totalCost: 3000 }, trade('REVERSE_SPLIT', 100, 0))).toEqual(EMPTY_COST_BASIS);
+  });
+
+  it('ignores total_value on splits', () => {
+    expect(applyTradeToCostBasis({ quantity: 100, totalCost: 1000 }, trade('SPLIT', 100, 500))).toEqual({ quantity: 200, totalCost: 1000 });
+  });
+
+  it('leaves the basis untouched for unknown movement types', () => {
+    const basis = { quantity: 100, totalCost: 1000 };
+    expect(applyTradeToCostBasis(basis, trade('UNKNOWN', 10, 100))).toBe(basis);
+  });
+});
+
+describe('calculateCostBasis', () => {
+  it('does not carry an oversold quantity into later buys', () => {
+    const basis = calculateCostBasis([
+      { movement_type: 'BUY', quantity: 100, total_value: 1000, trade_date: '2023-01-01' },
+      { movement_type: 'SELL', quantity: 150, total_value: 1800, trade_date: '2023-02-01' },
+      { movement_type: 'BUY', quantity: 50, total_value: 600, trade_date: '2023-03-01' },
+    ]);
+    expect(basis).toEqual({ quantity: 50, totalCost: 600 });
   });
 });
