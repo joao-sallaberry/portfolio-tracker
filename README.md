@@ -34,7 +34,7 @@ It provides an intuitive interface to import brokerage account statements, brows
 
 ### Prerequisites
 
-Ensure you have Node.js and npm installed on your machine.
+Node.js 22 or newer and **npm 11** or newer. Older npm releases (such as the npm 9 packaged by Ubuntu) crash with `Cannot read properties of null (reading 'edgesOut')` while resolving this project's dependencies; run `npx npm@11 install` if you can't upgrade.
 
 ### Installation
 
