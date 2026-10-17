@@ -23,7 +23,7 @@ The entire UI is in **Brazilian Portuguese**.
 
 | Layer | Technology | Notes |
 |---|---|---|
-| **Build** | [Vite 8](vite.config.ts) + SWC plugin | Dev server on port `8080`, `@` → `./src` alias |
+| **Build** | [Vite 8](vite.config.ts) + `@vitejs/plugin-react` | Dev server on port `8080`, `@` → `./src` alias |
 | **Tests** | Vitest 4 | Unit tests for the cost-basis logic (`npm run test`) |
 | **UI Framework** | React 18 (TypeScript, non-strict) | No SSR — pure SPA |
 | **Routing** | `react-router-dom` v6 | Client-side routing |
@@ -36,7 +36,6 @@ The entire UI is in **Brazilian Portuguese**.
 | **Date Utilities** | `date-fns` with `ptBR` locale | Date filters use native `<input type="date">` |
 | **Icons** | `lucide-react` | SVG icon library |
 | **Fonts** | DM Sans (body) + JetBrains Mono (monospace) | Loaded from Google Fonts in [index.css](src/index.css) |
-| **Dev Tooling** | `lovable-tagger` | Component tagger active in dev mode only |
 
 ---
 
@@ -436,7 +435,7 @@ graph LR
 4. **Static asset classification:** determined at build time from bundled CSVs.
 5. **Application-only deduplication:** frequency-map matching before insert; the DB allows duplicates on purpose.
 6. **Environment:** `.env` is gitignored; `.env.example` lists the required `VITE_SUPABASE_*` variables. Every `VITE_` variable is embedded in the client bundle, so only the publishable key belongs there.
-7. **Lovable origin:** scaffolded with [Lovable](https://lovable.dev) (`lovable-tagger`, generated Supabase client/types).
+7. **Lovable origin:** scaffolded with [Lovable](https://lovable.dev), which generated the Supabase client/types and the shadcn/ui setup. The project is no longer edited through Lovable.
 
 ---
 
