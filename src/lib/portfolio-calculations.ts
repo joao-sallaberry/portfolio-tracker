@@ -1,4 +1,4 @@
-import { classifyAsset } from './asset-classifier';
+import { classifyAsset, type AssetClass } from './asset-classifier';
 import { parseISODateLocal } from './formatters';
 
 export interface TradeForCalculation {
@@ -11,7 +11,7 @@ export interface TradeForCalculation {
 
 export interface Position {
   ticker: string;
-  assetClass: string;
+  assetClass: AssetClass;
   quantity: number;
   avgPrice: number;
   totalValue: number;

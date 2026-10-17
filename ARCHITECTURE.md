@@ -288,17 +288,17 @@ A `SELL` or `REVERSE_SPLIT` that takes the quantity to zero or below resets the 
 **Empty state:** a welcome screen with a CTA to `/importar`.
 
 **KPIs (4 cards):**
-- **Total Investido**: `Σ BUY.total_value − Σ SELL.total_value`
+- **Total Investido**: total cost of the current positions (`calculatePositions()`, same as Posição)
 - **Total em Proventos**: `Σ dividend.net_value` (all time)
 - **Proventos no Ano**: same, current year
 - **Operações no Ano**: count of trades in the current year
 
 **Charts:**
 1. **Proventos por Mês** — monthly dividend totals (last 12 months).
-2. **Distribuição do Portfólio** — pie chart of net invested value per `AssetClass`.
+2. **Distribuição do Portfólio** — pie chart of position cost per `AssetClass`.
 3. **Proventos por Ativo (Top 8)** — horizontal bar chart of top dividend-paying tickers.
 
-The dashboard does **not** use the shared cost basis (see §14).
+Dates are parsed with `parseISODateLocal()`, so payments on the 1st of a month are not shifted into the previous month by the UTC offset.
 
 ### 9.2 Negociações — [Negociacoes.tsx](src/pages/Negociacoes.tsx)
 
@@ -440,7 +440,6 @@ graph LR
 | Area | Observation |
 |---|---|
 | **Market prices** | No live or historical prices. Posição shows cost basis only. |
-| **Dashboard totals** | "Total Investido" and the distribution pie use `Σ BUY − Σ SELL` at **sale value**, not the cost basis. In the pie, every non-`BUY` movement counts as negative. Values diverge from Posição after profitable or losing sales. |
 | **Tax computation** | No distinction between day-trade (20%) and swing-trade (15%). The R$20k exemption applies to `Ação` sales only. Losses from previous months are tracked as the accumulated loss but not deducted from later taxable gains, so the tax due can be overstated. |
 | **Migration replay** | The migrations cannot be replayed from an empty database (§4.5). Use `schema_unified.sql` for new databases. |
 | **Proventos pagination** | Proventos renders all filtered rows without pagination (Negociações paginates at 50). |
