@@ -306,7 +306,7 @@ Dates are parsed with `parseISODateLocal()`, so payments on the 1st of a month a
 
 ### 9.2 Negociações — [Negociacoes.tsx](src/pages/Negociacoes.tsx)
 
-- Paginated table (50 items/page). Both browsers use the shared `PaginationControls` component.
+- Paginated table (50 items/page). Both browsers use the shared `usePagination` hook (back to page 1 when filters or sorting change) and `PaginationControls` component.
 - Filters: start/end date (native date inputs), movement type, ticker, asset class.
 - Summary cards: Total Compras (`BUY` + `BONUS`), Total Vendas (`SELL` + `AMORTIZATION`), operation count.
 - **Edit dialog**: changes date, type (also updates `movement_type_raw`), ticker (normalized with `normalizeTicker()`), institution, quantity, price and total value through a `useMutation` that invalidates `['trade-operations']`.

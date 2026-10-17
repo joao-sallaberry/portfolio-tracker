@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { TRADE_OPERATIONS_KEY, useTradeOperations, type TradeOperation } from '@/hooks/use-portfolio-data';
+import { usePagination } from '@/hooks/use-pagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,7 +41,6 @@ export default function Negociacoes() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [tickerFilter, setTickerFilter] = useState<string>('all');
   const [classFilter, setClassFilter] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
   const [editingTrade, setEditingTrade] = useState<EditableTrade | null>(null);
 
   const { data: tradesAsc, isLoading } = useTradeOperations();
@@ -142,16 +142,12 @@ export default function Negociacoes() {
     });
   }, [trades, startDate, endDate, typeFilter, tickerFilter, classFilter]);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [startDate, endDate, typeFilter, tickerFilter, classFilter]);
-
-  // Pagination
-  const paginatedTrades = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredTrades.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredTrades, currentPage]);
+  // Back to page 1 whenever the filters change
+  const { currentPage, setCurrentPage, pageItems: paginatedTrades } = usePagination(
+    filteredTrades,
+    ITEMS_PER_PAGE,
+    JSON.stringify([startDate, endDate, typeFilter, tickerFilter, classFilter])
+  );
 
   const totalBuys = filteredTrades.filter(t => t.movement_type === 'BUY' || t.movement_type === 'BONUS').reduce((sum, t) => sum + Number(t.total_value), 0);
   const totalSells = filteredTrades.filter(t => t.movement_type === 'SELL' || t.movement_type === 'AMORTIZATION').reduce((sum, t) => sum + Number(t.total_value), 0);
@@ -164,7 +160,6 @@ export default function Negociacoes() {
     setTypeFilter('all');
     setTickerFilter('all');
     setClassFilter('all');
-    setCurrentPage(1);
   };
 
   const getTypeLabel = (type: string) => {

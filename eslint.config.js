@@ -23,4 +23,11 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // shadcn/ui output is kept unmodified (its sidebar skeleton uses Math.random() on purpose)
+    files: ["src/components/ui/**"],
+    rules: {
+      "react-hooks/purity": "off",
+    },
+  },
 );
