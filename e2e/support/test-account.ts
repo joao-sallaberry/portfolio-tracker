@@ -40,8 +40,7 @@ export function testCredentials() {
   return { email, password };
 }
 
-/** Deletes every trade, dividend and initial loss of the test account (RLS limits it to that account). */
-export async function resetTestAccount() {
+async function signInTestAccount() {
   const url = env.VITE_SUPABASE_URL;
   const key = env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are required (see .env.example).');
@@ -49,7 +48,30 @@ export async function resetTestAccount() {
   const supabase = createClient(url, key, { auth: { persistSession: false } });
   const { data, error } = await supabase.auth.signInWithPassword(testCredentials());
   if (error) throw new Error(`Test account login failed: ${error.message}`);
-  const userId = data.user.id;
+  return { supabase, session: data.session };
+}
+
+/**
+ * URL hash that a password reset email link produces (implicit flow), built from a real session of
+ * the test account so no email is sent.
+ */
+export async function recoveryLinkHash() {
+  const { session } = await signInTestAccount();
+  const params = new URLSearchParams({
+    access_token: session.access_token,
+    expires_at: String(session.expires_at),
+    expires_in: String(session.expires_in),
+    refresh_token: session.refresh_token,
+    token_type: 'bearer',
+    type: 'recovery',
+  });
+  return `#${params}`;
+}
+
+/** Deletes every trade, dividend and initial loss of the test account (RLS limits it to that account). */
+export async function resetTestAccount() {
+  const { supabase, session } = await signInTestAccount();
+  const userId = session.user.id;
 
   for (const table of ['trade_operations', 'dividend_events', 'ir_initial_losses'] as const) {
     const { error: deleteError } = await supabase.from(table).delete().eq('user_id', userId);

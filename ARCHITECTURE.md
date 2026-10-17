@@ -164,6 +164,7 @@ Implemented in [Auth.tsx](src/pages/Auth.tsx).
 
 - **Email + password** via Supabase Auth (`signInWithPassword` / `signUp`). No OAuth or magic-link providers.
 - Sign-up sets `emailRedirectTo` to `${window.location.origin}/auth`, so the confirmation link brings the user back to the app.
+- **Forgot password:** "Esqueci minha senha" on the login tab calls `resetPasswordForEmail` with `redirectTo` = `/redefinir-senha`. The emailed link signs the user in with a recovery session; [ResetPassword.tsx](src/pages/ResetPassword.tsx) then sets the new password with `updateUser`. Without a session the page explains that the link is invalid or expired. If Supabase falls back to the Site URL (redirect not allow-listed), the `PASSWORD_RECOVERY` auth event still sends the user to `/redefinir-senha`. Both URLs (local and production) must be in Supabase's Auth → URL Configuration → Redirect URLs.
 - Session is persisted in `localStorage` with auto-refresh tokens ([client.ts](src/integrations/supabase/client.ts)).
 - Route protection is in [App.tsx](src/App.tsx): unauthenticated users are redirected to `/auth`; authenticated users on `/auth` are redirected to `/`.
 
@@ -173,7 +174,8 @@ Implemented in [Auth.tsx](src/pages/Auth.tsx).
 
 | Path | Page Component | Description |
 |---|---|---|
-| `/auth` | `Auth` | Login / Sign-up (public) |
+| `/auth` | `Auth` | Login / Sign-up / forgot password (public) |
+| `/redefinir-senha` | `ResetPassword` | New password after the reset email (with or without session) |
 | `/` | `Index` | Dashboard overview |
 | `/importar` | `Import` | Data import from files |
 | `/negociacoes` | `Negociacoes` | Trade operations browser |

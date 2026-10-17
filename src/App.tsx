@@ -7,10 +7,12 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useState, useEffect, lazy, Suspense } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { openedFromRecoveryLink } from "@/lib/auth-recovery";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Pages are loaded on demand so heavy dependencies (SheetJS, Recharts) only ship with the pages that use them
 const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Index = lazy(() => import("./pages/Index"));
 const Import = lazy(() => import("./pages/Import"));
 const Negociacoes = lazy(() => import("./pages/Negociacoes"));
@@ -33,6 +35,8 @@ const App = () => {
   // Check for session to protect routes
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // Set when the user arrives through a password reset link, until the new password is saved
+  const [passwordRecovery, setPasswordRecovery] = useState(openedFromRecoveryLink);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -42,9 +46,10 @@ const App = () => {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setLoading(false);
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
     });
 
     return () => subscription.unsubscribe();
@@ -63,12 +68,19 @@ const App = () => {
           <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/auth" element={!session ? <Auth /> : <Navigate to="/" replace />} />
+              {/* Reached from the reset email (which signs the user in), with or without a session */}
+              <Route
+                path="/redefinir-senha"
+                element={<ResetPassword session={session} onPasswordUpdated={() => setPasswordRecovery(false)} />}
+              />
 
               {/* Protected Routes */}
               <Route
                 path="/*"
                 element={
-                  session ? (
+                  passwordRecovery ? (
+                    <Navigate to="/redefinir-senha" replace />
+                  ) : session ? (
                     <AppLayout>
                       <Suspense fallback={<PageFallback />}>
                         <Routes>
