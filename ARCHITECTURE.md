@@ -67,10 +67,11 @@ portfolio-tracker/
     │   ├── ir-calculations.test.ts
     │   ├── formatters.ts       # BRL currency, dates, number parsing
     │   ├── asset-classifier.ts # Ticker → asset class lookup
+    │   ├── fetch-all-pages.ts  # Pages through PostgREST's 1000-row limit (tested)
     │   ├── xlsx-parser.ts      # XLSX/CSV → typed row arrays with per-row errors
     │   └── utils.ts            # `cn()` helper (clsx + tailwind-merge)
     ├── data/                   # Known tickers per asset class (CSV)
-    ├── hooks/                  # use-mobile, use-toast
+    ├── hooks/                  # use-portfolio-data (shared queries), use-mobile, use-toast
     ├── components/
     │   ├── layout/             # AppLayout (sidebar + header), AppSidebar
     │   ├── import/             # FileUploadCard, PreviewTable
@@ -222,7 +223,7 @@ Valid rows are mapped to DB columns, tagged with `user_id`, deduplicated (§7.4)
 
 ### 7.4 Deduplication Logic
 
-Before inserting, the page fetches **all existing records** for the user and builds a frequency map keyed on:
+Before inserting, the page fetches **all existing records** for the user (`fetchAllDividendEvents` / `fetchAllTradeOperations`, paginated) and builds a frequency map keyed on:
 
 - proventos: `ticker-payment_date-event_type-quantity-net_value`
 - negociações: `trade_date-movement_type-ticker-quantity-total_value`
@@ -419,7 +420,7 @@ graph LR
     F -->|Recharts| I[Charts]
 ```
 
-**Key pattern:** every page that needs data fetches the user's full dataset with a `while` loop over `.range(from, from + pageSize - 1)` (page size 1000) to get past the PostgREST row limit, then filters and aggregates in memory.
+**Key pattern:** pages read data through [use-portfolio-data.ts](src/hooks/use-portfolio-data.ts): `useTradeOperations()` and `useDividendEvents()` fetch the user's full dataset (oldest first) under the shared query keys `TRADE_OPERATIONS_KEY` / `DIVIDEND_EVENTS_KEY`, so every page uses the same cache. They page through PostgREST's 1000-row limit with `fetchAllPages()`, ordering by date **and `id`** so rows don't repeat or go missing between pages. Pages filter and aggregate in memory; mutations and imports invalidate those keys.
 
 ---
 

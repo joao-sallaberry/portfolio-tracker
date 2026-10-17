@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useTradeOperations } from '@/hooks/use-portfolio-data';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -126,36 +127,7 @@ export default function ImpostoRenda() {
   };
 
   const currentYear = new Date().getFullYear();
-  const { data: trades, isLoading } = useQuery({
-    queryKey: ['trade-operations', 'all', 'v2'],
-    queryFn: async () => {
-      // Fetch all records using pagination to bypass the 1000 row limit
-      const allRecords: any[] = [];
-      const pageSize = 1000;
-      let from = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('trade_operations')
-          .select('*')
-          .order('trade_date', { ascending: true })
-          .range(from, from + pageSize - 1);
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          allRecords.push(...data);
-          from += pageSize;
-          hasMore = data.length === pageSize;
-        } else {
-          hasMore = false;
-        }
-      }
-
-      return allRecords;
-    },
-  });
+  const { data: trades, isLoading } = useTradeOperations();
 
   // Get unique tickers sorted alphabetically
   const tickers = useMemo(() => {

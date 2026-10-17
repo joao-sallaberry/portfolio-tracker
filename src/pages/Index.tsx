@@ -1,5 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useDividendEvents, useTradeOperations } from '@/hooks/use-portfolio-data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
@@ -22,57 +21,9 @@ const CHART_COLORS = [
 ];
 
 export default function Index() {
-  const { data: trades, isLoading: tradesLoading } = useQuery({
-    queryKey: ['trade-operations-summary'],
-    queryFn: async () => {
-      // Fetch all rows (PostgREST paginates responses; default max is 1000 rows per request)
-      const pageSize = 1000;
-      let from = 0;
-      const all: any[] = [];
+  const { data: trades, isLoading: tradesLoading } = useTradeOperations();
 
-      while (true) {
-        const { data, error } = await supabase
-          .from('trade_operations')
-          .select('*')
-          .order('trade_date', { ascending: false })
-          .range(from, from + pageSize - 1);
-
-        if (error) throw error;
-        all.push(...(data ?? []));
-
-        if (!data || data.length < pageSize) break;
-        from += pageSize;
-      }
-
-      return all;
-    },
-  });
-
-  const { data: dividends, isLoading: dividendsLoading } = useQuery({
-    queryKey: ['dividend-events-summary'],
-    queryFn: async () => {
-      // Fetch all rows (PostgREST paginates responses; default max is 1000 rows per request)
-      const pageSize = 1000;
-      let from = 0;
-      const all: any[] = [];
-
-      while (true) {
-        const { data, error } = await supabase
-          .from('dividend_events')
-          .select('*')
-          .order('payment_date', { ascending: false })
-          .range(from, from + pageSize - 1);
-
-        if (error) throw error;
-        all.push(...(data ?? []));
-
-        if (!data || data.length < pageSize) break;
-        from += pageSize;
-      }
-
-      return all;
-    },
-  });
+  const { data: dividends, isLoading: dividendsLoading } = useDividendEvents();
 
   const isLoading = tradesLoading || dividendsLoading;
   const currentYear = new Date().getFullYear();
