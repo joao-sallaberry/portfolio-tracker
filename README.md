@@ -50,10 +50,14 @@ npm install
 ```
 
 3. Configure Environment Variables:
-Create a `.env` file in the root directory and add your Supabase credentials:
+Copy `.env.example` to `.env` and fill in your Supabase credentials (Project Settings → API):
+```bash
+cp .env.example .env
+```
 ```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_PROJECT_ID="your_project_id"
+VITE_SUPABASE_PUBLISHABLE_KEY="your_publishable_key"
+VITE_SUPABASE_URL="https://your_project_id.supabase.co"
 ```
 
 4. Start the development server:

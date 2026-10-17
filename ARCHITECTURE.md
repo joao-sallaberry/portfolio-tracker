@@ -1,7 +1,7 @@
 # Portfolio Tracker — Architecture & Business Logic
 
 > **Repository:** `joao-sallaberry/portfolio-tracker`
-> **Generated from source on:** 2026-04-26
+> **Last updated from source on:** 2026-10-17
 
 ---
 
@@ -10,9 +10,9 @@
 Portfolio Tracker is a **single-page web application** for managing a personal investment portfolio on the Brazilian stock market (**B3**). It allows a user to:
 
 1. **Import** brokerage account statements (XLSX/CSV) containing trade operations and dividend events.
-2. **Browse** imported trades and dividends with rich filtering and pagination.
-3. **View** an aggregated position (quantity × average price) per asset.
-4. **Analyse** income tax obligations by computing capital gains, losses, and accumulated tax per month/year.
+2. **Browse, edit and sort** imported trades and dividends with filtering and pagination.
+3. **View** an aggregated cost-basis position (quantity × average price) per asset.
+4. **Analyse** income tax obligations by computing capital gains, losses, exemptions and accumulated tax per month/year.
 5. **Visualise** portfolio distribution and dividend history through interactive charts.
 
 The entire UI is in **Brazilian Portuguese**.
@@ -23,19 +23,20 @@ The entire UI is in **Brazilian Portuguese**.
 
 | Layer | Technology | Notes |
 |---|---|---|
-| **Build** | [Vite 5](file:///home/joao/Documents/repos/portfolio-tracker/vite.config.ts) + SWC plugin | Dev server on port `8080` |
-| **UI Framework** | React 18 (TypeScript) | No SSR — pure SPA |
+| **Build** | [Vite 8](vite.config.ts) + SWC plugin | Dev server on port `8080`, `@` → `./src` alias |
+| **Tests** | Vitest 4 | Unit tests for `calculatePositions()` (`npm run test`) |
+| **UI Framework** | React 18 (TypeScript, non-strict) | No SSR — pure SPA |
 | **Routing** | `react-router-dom` v6 | Client-side routing |
-| **Styling** | TailwindCSS 3 + `tailwindcss-animate` | Theme defined in [index.css](file:///home/joao/Documents/repos/portfolio-tracker/src/index.css) with light/dark mode CSS variables |
+| **Styling** | TailwindCSS 3 + `tailwindcss-animate` | Theme defined in [index.css](src/index.css) with light/dark mode CSS variables |
 | **Component Library** | shadcn/ui (Radix primitives) | 49 UI components in `src/components/ui/` |
 | **Charts** | Recharts 2 | Bar charts, pie charts |
-| **Server / Data** | [Supabase](file:///home/joao/Documents/repos/portfolio-tracker/src/integrations/supabase/client.ts) (PostgreSQL + Auth) | Hosted instance `vhihtrrnbxsxaqbrivam.supabase.co` |
-| **State / Caching** | TanStack React Query v5 | All data fetching is via `useQuery` |
-| **File Parsing** | [SheetJS (xlsx)](file:///home/joao/Documents/repos/portfolio-tracker/src/lib/xlsx-parser.ts) | Client-side XLSX/CSV parsing |
-| **Form Validation** | Zod + React Hook Form | Installed but **not actively used** in current pages |
-| **Date Utilities** | `date-fns` with `ptBR` locale | Localised date formatting |
+| **Server / Data** | [Supabase](src/integrations/supabase/client.ts) (PostgreSQL + Auth) | Hosted project `vhihtrrnbxsxaqbrivam` |
+| **State / Caching** | TanStack React Query v5 | `useQuery` for reads, `useMutation` for edits |
+| **File Parsing** | [SheetJS (xlsx)](src/lib/xlsx-parser.ts) | Client-side XLSX/CSV parsing |
+| **Form Validation** | Zod + React Hook Form | Installed but **not used** in current pages |
+| **Date Utilities** | `date-fns` with `ptBR` locale | Date filters use native `<input type="date">` |
 | **Icons** | `lucide-react` | SVG icon library |
-| **Fonts** | DM Sans (body) + JetBrains Mono (monospace) | Loaded from Google Fonts in [index.css](file:///home/joao/Documents/repos/portfolio-tracker/src/index.css#L1) |
+| **Fonts** | DM Sans (body) + JetBrains Mono (monospace) | Loaded from Google Fonts in [index.css](src/index.css) |
 | **Dev Tooling** | `lovable-tagger` | Component tagger active in dev mode only |
 
 ---
@@ -47,46 +48,36 @@ portfolio-tracker/
 ├── index.html                  # HTML shell (SPA entry)
 ├── vite.config.ts              # Build config, `@` → `./src` alias
 ├── tailwind.config.ts          # Tailwind theme extensions
-├── .env                        # Supabase URL + anon key
+├── .env.example                # Template for .env (Supabase URL + publishable key)
 ├── supabase/
-│   ├── schema_unified.sql      # Full DB schema (DDL + RLS)
-│   └── migrations/             # 8 incremental migration files
+│   ├── config.toml             # Supabase CLI project id
+│   ├── schema_unified.sql      # Full current DDL + RLS for a fresh database (see §4.4)
+│   └── migrations/             # 9 incremental migration files
 └── src/
     ├── main.tsx                # React root mount
     ├── App.tsx                 # Auth guard + router + providers
     ├── index.css               # Design system tokens (CSS vars)
-    ├── App.css                 # Minor app-level styles
     ├── integrations/supabase/
     │   ├── client.ts           # Supabase client singleton
-    │   └── types.ts            # Auto-generated DB types
+    │   └── types.ts            # Generated DB types
     ├── lib/
+    │   ├── portfolio-calculations.ts       # calculatePositions() for Posição
+    │   ├── portfolio-calculations.test.ts  # Vitest unit tests
     │   ├── formatters.ts       # BRL currency, dates, number parsing
     │   ├── asset-classifier.ts # Ticker → asset class lookup
-    │   ├── xlsx-parser.ts      # XLSX/CSV → typed row arrays
+    │   ├── xlsx-parser.ts      # XLSX/CSV → typed row arrays with per-row errors
     │   └── utils.ts            # `cn()` helper (clsx + tailwind-merge)
-    ├── data/
-    │   ├── Acoes.csv           # Known stock tickers
-    │   ├── ETFs.csv            # Known ETF tickers
-    │   ├── FIIs.csv            # Known FII tickers
-    │   ├── FI-Infras.csv       # Known FI-Infra tickers
-    │   └── FIPs.csv            # Known FIP tickers
-    ├── hooks/
-    │   ├── use-mobile.tsx      # Responsive breakpoint hook
-    │   └── use-toast.ts        # Toast re-export
+    ├── data/                   # Known tickers per asset class (CSV)
+    ├── hooks/                  # use-mobile, use-toast
     ├── components/
-    │   ├── NavLink.tsx         # Active-state NavLink wrapper
-    │   ├── layout/
-    │   │   ├── AppLayout.tsx   # Sidebar + main content shell
-    │   │   └── AppSidebar.tsx  # Navigation sidebar
-    │   ├── import/
-    │   │   ├── FileUploadCard.tsx  # Drag-and-drop file upload
-    │   │   └── PreviewTable.tsx    # Parsed data preview + confirm
-    │   └── ui/                 # 49 shadcn/ui components (not modified)
+    │   ├── layout/             # AppLayout (sidebar + header), AppSidebar
+    │   ├── import/             # FileUploadCard, PreviewTable
+    │   └── ui/                 # shadcn/ui components (not modified)
     └── pages/
         ├── Auth.tsx            # Login / Sign-up
         ├── Index.tsx           # Dashboard (Visão Geral)
         ├── Import.tsx          # Data import workflow
-        ├── Negociacoes.tsx     # Trade history browser
+        ├── Negociacoes.tsx     # Trade history browser + editing
         ├── Proventos.tsx       # Dividend history browser
         ├── Posicao.tsx         # Current position summary
         ├── ImpostoRenda.tsx    # Income tax calculator
@@ -98,7 +89,7 @@ portfolio-tracker/
 
 ## 4. Database Schema
 
-Defined in [schema_unified.sql](file:///home/joao/Documents/repos/portfolio-tracker/supabase/schema_unified.sql). Two tables, both multi-tenant via `user_id`:
+Two tables, both multi-tenant via `user_id`. The current schema is the result of applying all files in `supabase/migrations/` in order.
 
 ### 4.1 `trade_operations`
 
@@ -107,7 +98,7 @@ Defined in [schema_unified.sql](file:///home/joao/Documents/repos/portfolio-trac
 | `id` | UUID (PK) | auto-generated |
 | `user_id` | TEXT | **NOT NULL** — maps to `auth.uid()` |
 | `trade_date` | DATE | |
-| `movement_type` | TEXT | `CHECK (IN ('BUY', 'SELL'))` ¹ |
+| `movement_type` | TEXT | `CHECK (IN ('BUY', 'SELL', 'SPLIT', 'REVERSE_SPLIT', 'BONUS', 'AMORTIZATION'))` |
 | `movement_type_raw` | TEXT | original label from the file |
 | `market` | TEXT | e.g. `"Bovespa"` |
 | `maturity` | TEXT (nullable) | |
@@ -116,11 +107,8 @@ Defined in [schema_unified.sql](file:///home/joao/Documents/repos/portfolio-trac
 | `quantity` | NUMERIC | |
 | `price` | NUMERIC | per-unit price |
 | `total_value` | NUMERIC | `quantity × price` |
+| `exclude_from_ir` | BOOLEAN | default `false` — see §9.5 |
 | `created_at` | TIMESTAMPTZ | auto `now()` |
-
-> ¹ **Gap:** The `CHECK` constraint in the DDL only allows `BUY` and `SELL`, but the application code also writes `BONUS`, `SPLIT`, `REVERSE_SPLIT`, and `AMORTIZATION`. Migration `20260201215723_allow_all_movements.sql` likely relaxes this constraint.
-
-**Indexes:** `user_id`, `ticker`, `trade_date`, plus a composite unique index on all business columns (per-user deduplication).
 
 ### 4.2 `dividend_events`
 
@@ -138,28 +126,32 @@ Defined in [schema_unified.sql](file:///home/joao/Documents/repos/portfolio-trac
 | `net_value` | NUMERIC | total net amount received |
 | `created_at` | TIMESTAMPTZ | auto `now()` |
 
-**Indexes:** Same strategy — lookup by `user_id`, `ticker`, `payment_date`, plus a composite unique index for deduplication.
+### 4.3 Indexes and Row-Level Security
 
-### 4.3 Row-Level Security
+- Lookup indexes on `user_id`, `ticker` and the date column of each table.
+- A composite **non-unique** index on the business columns of each table (`idx_*_dedupe_lookup`). These were originally unique, but migration `20260201215155_allow_duplicates.sql` dropped the uniqueness so that legitimate identical rows (e.g. two equal trades on the same day) can be stored. Deduplication is now **application-only** (§7.4).
+- Both tables have RLS enabled with SELECT/INSERT/UPDATE/DELETE policies enforcing `auth.uid()::text = user_id`.
 
-Both tables have RLS enabled with four policies each (SELECT, INSERT, UPDATE, DELETE) enforcing `auth.uid()::text = user_id`. All data access is **scoped per authenticated user**.
+### 4.4 Schema files
+
+`supabase/schema_unified.sql` builds the current schema from scratch in one run (paste it into the Supabase SQL Editor). It is the supported way to create a new database: replaying `supabase/migrations/` in order fails at `20260201205948_add_user_id_to_tables.sql`, which drops `idx_dividend_events_dedupe` without `IF EXISTS` after an earlier migration already removed it.
+
+When changing the schema, add a migration (to apply to the existing database), update `schema_unified.sql` to match, and update `src/integrations/supabase/types.ts`.
 
 ---
 
 ## 5. Authentication
 
-Implemented in [Auth.tsx](file:///home/joao/Documents/repos/portfolio-tracker/src/pages/Auth.tsx).
+Implemented in [Auth.tsx](src/pages/Auth.tsx).
 
-- **Email + password** authentication via Supabase Auth (`signInWithPassword` / `signUp`).
-- No OAuth or magic-link providers are configured.
-- Session is persisted in `localStorage` with auto-refresh tokens ([client.ts](file:///home/joao/Documents/repos/portfolio-tracker/src/integrations/supabase/client.ts#L11-L16)).
-- Route protection is implemented in [App.tsx](file:///home/joao/Documents/repos/portfolio-tracker/src/App.tsx#L56-L76): unauthenticated users are redirected to `/auth`; authenticated users on `/auth` are redirected to `/`.
+- **Email + password** via Supabase Auth (`signInWithPassword` / `signUp`). No OAuth or magic-link providers.
+- Sign-up sets `emailRedirectTo` to `${window.location.origin}/auth`, so the confirmation link brings the user back to the app.
+- Session is persisted in `localStorage` with auto-refresh tokens ([client.ts](src/integrations/supabase/client.ts)).
+- Route protection is in [App.tsx](src/App.tsx): unauthenticated users are redirected to `/auth`; authenticated users on `/auth` are redirected to `/`.
 
 ---
 
 ## 6. Routing & Layout
-
-### 6.1 Route Map
 
 | Path | Page Component | Description |
 |---|---|---|
@@ -173,83 +165,71 @@ Implemented in [Auth.tsx](file:///home/joao/Documents/repos/portfolio-tracker/sr
 | `/configuracoes` | `Configuracoes` | User settings |
 | `*` | `NotFound` | 404 fallback |
 
-All routes except `/auth` are wrapped in [AppLayout](file:///home/joao/Documents/repos/portfolio-tracker/src/components/layout/AppLayout.tsx), which provides a collapsible sidebar + header with sidebar trigger.
-
-### 6.2 Sidebar Navigation
-
-Defined in [AppSidebar.tsx](file:///home/joao/Documents/repos/portfolio-tracker/src/components/layout/AppSidebar.tsx#L14-L22). Uses the shadcn/ui `Sidebar` component with active-state highlighting via `useLocation()`.
+All routes except `/auth` are wrapped in [AppLayout](src/components/layout/AppLayout.tsx) (collapsible sidebar + header). Navigation items are defined in [AppSidebar.tsx](src/components/layout/AppSidebar.tsx).
 
 ---
 
 ## 7. Data Import Pipeline
 
-The import page ([Import.tsx](file:///home/joao/Documents/repos/portfolio-tracker/src/pages/Import.tsx)) is the **primary data ingestion path**. It handles two independent import flows:
+The import page ([Import.tsx](src/pages/Import.tsx)) is the **primary data ingestion path**. It handles two independent flows (proventos / negociações), each going through `idle → parsing → preview → importing → success | error`.
 
-### 7.1 State Machine
+### 7.1 File Parsing
 
-Each flow (proventos / negociações) goes through: `idle → parsing → preview → importing → success | error`.
+Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser returns `ParseResult<T>` with `data[]`, `errors[]` (file-level, e.g. missing headers), `warnings[]` and `totalRows`. Each parsed row carries `hasErrors` and `errorMessages[]`.
 
-### 7.2 File Parsing
+- **Proventos** (`parseProventosFile()`): B3 XLSX with columns `Produto`, `Pagamento`, `Tipo de Evento`, `Instituição`, `Quantidade`, `Preço unitário`, `Valor líquido`. A row is flagged when product, payment date or event type is missing/invalid.
+- **Negociações** (`parseNegociacaoFileAuto()` picks the format):
+  1. **XLSX** (B3 statement): `Data do Negócio`, `Tipo de Movimentação`, `Mercado`, `Prazo/Vencimento`, `Instituição`, `Código de Negociação`, `Quantidade`, `Preço`, `Valor` — parsed by `parseNegociacaoFile()`.
+  2. **Simplified CSV**: `Ticker`, `Data`, `Preço un.`, `Qtd`, `Tipo`. Dates in `DD/MM/YYYY` or `DD/MM/YY`.
 
-Implemented in [xlsx-parser.ts](file:///home/joao/Documents/repos/portfolio-tracker/src/lib/xlsx-parser.ts).
-
-#### Proventos (Dividend Events)
-
-- **Input:** XLSX file matching the B3/broker statement format.
-- **Expected columns:** `Produto`, `Pagamento`, `Tipo de Evento`, `Instituição`, `Quantidade`, `Preço unitário`, `Valor líquido`.
-- **Parser:** `parseProventosFile()` — reads via SheetJS, validates headers, parses each row with `parseExcelDate()` and `parseNumberBR()`, extracts tickers via `extractTicker()`.
-- **Output:** `ParseResult<DividendEventRow>` with `data[]`, `errors[]`, `warnings[]`, `totalRows`.
-
-#### Negociações (Trade Operations)
-
-Two formats are supported via `parseNegociacaoFileAuto()`:
-
-1. **XLSX** (B3 official statement): Columns `Data do Negócio`, `Tipo de Movimentação`, `Mercado`, `Prazo/Vencimento`, `Instituição`, `Código de Negociação`, `Quantidade`, `Preço`, `Valor`. Parsed by `parseNegociacaoFile()`.
-
-2. **Simplified CSV**: Columns `Ticker`, `Data`, `Preço un.`, `Qtd`, `Tipo`. Parsed by `parseNegociacaoCSV()`. Dates accepted in both `DD/MM/YYYY` and `DD/MM/YY` formats.
+  A row is flagged when date, movement type or ticker is missing/invalid, or when the movement type is unknown.
 
 #### Movement Type Normalisation
 
-Handled by [normalizeMovementType()](file:///home/joao/Documents/repos/portfolio-tracker/src/lib/formatters.ts#L107-L125):
+[normalizeMovementType()](src/lib/formatters.ts) maps the raw label:
 
 | Raw input (Portuguese) | Normalised value |
 |---|---|
 | `Compra`, `buy` | `BUY` |
-| `Venda`, `sell` (default) | `SELL` |
+| `Venda`, `sell` | `SELL` |
 | `Bonificação`, `bonus` | `BONUS` |
 | `Desdobramento`, `split` | `SPLIT` |
 | `Grupamento`, `reverse_split` | `REVERSE_SPLIT` |
 | `Amortização`, `amortization` | `AMORTIZATION` |
+| anything else | `UNKNOWN` (row flagged as error) |
 
-### 7.3 Preview & Confirmation
+### 7.2 Preview & Confirmation
 
-After parsing, data is shown in a [PreviewTable](file:///home/joao/Documents/repos/portfolio-tracker/src/components/import/PreviewTable.tsx) (first 20 rows) with error/warning banners. The user must click **"Confirmar importação"** to proceed.
+[PreviewTable](src/components/import/PreviewTable.tsx) shows the first 20 rows (rows with errors highlighted, messages in the tooltip), the first 10 warnings and the valid-row count. File-level errors disable **"Confirmar importação"**. Rows with `hasErrors` are skipped on import.
+
+### 7.3 Insertion
+
+Valid rows are mapped to DB columns, tagged with `user_id`, deduplicated (§7.4) and inserted in a single `insert()` call.
 
 ### 7.4 Deduplication Logic
 
-Before inserting, the Import page fetches **all existing records** for the user and builds a frequency map keyed on business columns. Incoming rows are matched against this map — only genuinely new rows are inserted. This allows the user to re-import the same file without creating duplicates.
+Before inserting, the page fetches **all existing records** for the user and builds a frequency map keyed on:
 
-The database also has **unique composite indexes** as a secondary deduplication guard.
+- proventos: `ticker-payment_date-event_type-quantity-net_value`
+- negociações: `trade_date-movement_type-ticker-quantity-total_value`
+
+Each incoming row "consumes" one existing match; only rows beyond the existing count are inserted. Re-importing the same file adds nothing, while a file with three identical rows against one in the DB inserts two. The database no longer enforces uniqueness (§4.3).
 
 ### 7.5 Data Clearing
 
-Two "clear history" buttons delete all rows from `dividend_events` or `trade_operations` for the current user (via `.delete().neq('id', '00000000-...')` — a workaround since Supabase requires a filter on delete).
+Two "clear history" buttons delete all rows from `dividend_events` or `trade_operations` for the current user (via `.delete().neq('id', '00000000-...')` — Supabase requires a filter on delete).
 
 ---
 
 ## 8. Asset Classification
 
-Implemented in [asset-classifier.ts](file:///home/joao/Documents/repos/portfolio-tracker/src/lib/asset-classifier.ts).
-
-### 8.1 Asset Classes
+Implemented in [asset-classifier.ts](src/lib/asset-classifier.ts).
 
 ```typescript
 type AssetClass = 'Ação' | 'ETF' | 'FII' | 'FI-Infra' | 'FIP' | 'Outro';
 ```
 
-### 8.2 Classification Method
-
-Five CSV files under `src/data/` are imported at build time (via Vite's `?raw` suffix) and parsed into `Set<string>` lookups keyed on the **first 4 characters** of each ticker (the "base code"):
+Five CSV files under `src/data/` are imported at build time (Vite `?raw`) and parsed into `Set<string>` lookups keyed on the **first 4 characters** of each ticker:
 
 | CSV File | Asset Class | Delimiter | Ticker Column Index |
 |---|---|---|---|
@@ -259,68 +239,80 @@ Five CSV files under `src/data/` are imported at build time (via Vite's `?raw` s
 | `FI-Infras.csv` | FI-Infra | `;` | 2 |
 | `FIPs.csv` | FIP | `;` | 2 |
 
-`classifyAsset(ticker)` checks the base code against each set in order: ETF → FII → FI-Infra → FIP → Ação → fallback `"Outro"`.
-
-> ETFs are checked before Ações because some ETF codes could theoretically collide with stock base codes.
+`classifyAsset(ticker)` checks ETF → FII → FI-Infra → FIP → Ação → fallback `"Outro"`. ETFs come first because some ETF base codes could collide with stock base codes.
 
 ---
 
-## 9. Page-by-Page Business Logic
+## 9. Business Logic
 
-### 9.1 Dashboard — [Index.tsx](file:///home/joao/Documents/repos/portfolio-tracker/src/pages/Index.tsx)
+### 9.0 Cost Basis
 
-**Empty state:** If no data exists, shows a welcome screen with a CTA to `/importar`.
+Average price uses the weighted average cost method. It is implemented **four times**:
+
+- `calculatePositions(trades)` in [portfolio-calculations.ts](src/lib/portfolio-calculations.ts), used by Posição and covered by `portfolio-calculations.test.ts`.
+- Three inline loops in [ImpostoRenda.tsx](src/pages/ImpostoRenda.tsx): monthly sales (Tab 1), year-end snapshots and per-asset history (Tab 2).
+
+Each one walks a ticker's trades in date order and applies these rules:
+
+| Movement | Quantity | Total cost |
+|---|---|---|
+| `BUY`, `BONUS` | `+ qty` | `+ total_value` |
+| `SELL` | `− qty` | reduced at the current average price (average unchanged) |
+| `AMORTIZATION` | unchanged | `− total_value` |
+| `SPLIT` | `+ qty` | unchanged (average diluted) |
+| `REVERSE_SPLIT` | `− qty` | unchanged (average concentrated) |
+
+The copies differ in two edge cases:
+
+- **Oversold position:** the IR loops reset the position to empty when a `SELL` or `REVERSE_SPLIT` takes the quantity to zero or below. `calculatePositions` lets the quantity go negative, so an oversold quantity is subtracted from later buys.
+- **Splits:** `calculatePositions` also adds a `SPLIT` row's `total_value` to the cost. B3 split rows normally have `total_value = 0`, so this rarely matters.
+
+A change to how a movement type affects quantity or cost must be made in all four places.
+
+### 9.1 Dashboard — [Index.tsx](src/pages/Index.tsx)
+
+**Empty state:** a welcome screen with a CTA to `/importar`.
 
 **KPIs (4 cards):**
-- **Total Investido** (Net Invested): `Σ BUY.total_value − Σ SELL.total_value`
+- **Total Investido**: `Σ BUY.total_value − Σ SELL.total_value`
 - **Total em Proventos**: `Σ dividend.net_value` (all time)
-- **Proventos no Ano**: Same, filtered to current year
-- **Operações no Ano**: Count of trades in the current year
+- **Proventos no Ano**: same, current year
+- **Operações no Ano**: count of trades in the current year
 
-**Charts (3):**
-1. **Proventos por Mês** — Bar chart of monthly dividend totals (last 12 months).
-2. **Distribuição do Portfólio** — Pie chart of net invested value grouped by `AssetClass`.
-3. **Proventos por Ativo (Top 8)** — Horizontal bar chart of top dividend-paying tickers.
+**Charts:**
+1. **Proventos por Mês** — monthly dividend totals (last 12 months).
+2. **Distribuição do Portfólio** — pie chart of net invested value per `AssetClass`.
+3. **Proventos por Ativo (Top 8)** — horizontal bar chart of top dividend-paying tickers.
 
-All data is fetched via paginated Supabase queries (1000 rows/page) to bypass the PostgREST default limit.
+The dashboard does **not** use any of the cost-basis implementations (see §14).
 
-### 9.2 Negociações — [Negociacoes.tsx](file:///home/joao/Documents/repos/portfolio-tracker/src/pages/Negociacoes.tsx)
+### 9.2 Negociações — [Negociacoes.tsx](src/pages/Negociacoes.tsx)
 
-**Features:**
-- Paginated data table (50 items/page) with smart pagination controls.
-- 5 filter dimensions: start date, end date, movement type, ticker, asset class.
-- Summary cards: Total Buys, Total Sells, Operation Count.
-- Dates are parsed with `parseISODateLocal()` to avoid timezone offset issues.
+- Paginated table (50 items/page).
+- Filters: start/end date (native date inputs), movement type, ticker, asset class.
+- Summary cards: Total Compras (`BUY` + `BONUS`), Total Vendas (`SELL` + `AMORTIZATION`), operation count.
+- **Edit dialog**: changes date, type (also updates `movement_type_raw`), ticker, institution, quantity, price and total value through a `useMutation` that invalidates `['trade-operations']`.
+- **"Excluir do IR" switch** on `SELL` rows toggles `exclude_from_ir`.
 
-### 9.3 Proventos — [Proventos.tsx](file:///home/joao/Documents/repos/portfolio-tracker/src/pages/Proventos.tsx)
+### 9.3 Proventos — [Proventos.tsx](src/pages/Proventos.tsx)
 
-**Features:**
-- Filterable data table: date range, event type, asset class.
-- Summary cards: Total Proventos, Proventos this year, Event count, Distinct event types.
-- **Stacked bar chart** of monthly dividends broken down by asset class, with toggleable class visibility via checkboxes.
+- Filters: date presets (all, current/last month, current/last year, past 12 months, past 5 years — editing a date switches to "custom"), start/end date, event type, asset class, ticker.
+- Column sorting on every column (asset class sorts by `classifyAsset`).
+- Table footer with the total of the filtered rows.
+- Summary cards: total, current year, event count, distinct event types.
+- **Stacked bar chart** of monthly dividends by asset class, with per-class toggles.
 
-### 9.4 Posição — [Posicao.tsx](file:///home/joao/Documents/repos/portfolio-tracker/src/pages/Posicao.tsx)
+### 9.4 Posição — [Posicao.tsx](src/pages/Posicao.tsx)
 
-**Calculation:** Aggregates all `trade_operations` per ticker:
-- `net_quantity = Σ BUY.quantity − Σ SELL.quantity`
-- `average_price = Σ BUY.total_value / Σ BUY.quantity`
-- `total_value = net_quantity × average_price`
+Uses `calculatePositions()` (§9.0). Positions are grouped by asset class (Ações, FIIs, ETFs, FI-Infra, FIP, Outros), each in its own card with quantity, average price, total value and portfolio weight. Columns are sortable (default: total value descending).
 
-Filters out tickers with `net_quantity ≤ 0` and sorts by total value descending.
+> **Limitation:** this is a **cost-basis** position. There is no market price data.
 
-**Display:** Grouped by asset class (Ações, FIIs, ETFs, FI-Infra, FIP, Outros), each rendered as a separate card/table showing per-ticker quantity, average price, total value, and portfolio weight percentage.
+### 9.5 Imposto de Renda — [ImpostoRenda.tsx](src/pages/ImpostoRenda.tsx)
 
-> **Limitation:** This is a **cost-basis** position, not a market-value position. There is no live price data or mark-to-market valuation.
-
-### 9.5 Imposto de Renda — [ImpostoRenda.tsx](file:///home/joao/Documents/repos/portfolio-tracker/src/pages/ImpostoRenda.tsx)
-
-The most complex page (864 lines). Two tabs:
+Two tabs. Each computes the cost basis with its own inline loop (§9.0).
 
 #### Tab 1: "Vendas por Classe" (Sales by Tax Group)
-
-Implements Brazilian capital gains tax logic:
-
-**Tax groups:**
 
 | Group | Tax Rate | Asset Classes |
 |---|---|---|
@@ -328,42 +320,32 @@ Implements Brazilian capital gains tax logic:
 | FIIs | 20% | FII |
 | Isentos | 0% | FI-Infra, FIP |
 
-**Calculation per sale:**
-1. Iterate all trades for each ticker in the tax group, sorted by date ascending.
-2. Maintain a running `totalCost` and `runningQuantity` using weighted average cost method.
-3. For each `SELL` in the selected year:
-   - `profit_loss = (sale_price − avg_price_before_sale) × quantity`
-   - `tax_due = profit_loss > 0 ? profit_loss × rate : 0`
-4. Group sales by month and display in tables.
-5. Track **accumulated losses** across months with carry-forward (negative P&L reduces future tax liability).
+For the selected group and year:
 
-**Movement type handling in average price calculation:**
-- `BUY` / `BONUS`: Add to cost and quantity.
-- `SELL` / `AMORTIZATION`: Reduce quantity; recalculate cost proportionally.
-- `SPLIT`: Increase quantity, keep total cost constant (dilutes average price).
-- `REVERSE_SPLIT`: Decrease quantity, keep total cost constant (concentrates average price).
+1. For each ticker, walk its trades in date order. For each `SELL` in the year, record `profit_loss = (sale_price − avg_price_before_sale) × quantity`.
+2. **Oversold sales** (quantity sold exceeds the held position) are flagged with `oversold_position` and never generate tax.
+3. **Sales excluded from IR** (`exclude_from_ir`) are listed but have `profit_loss` and `tax_due` zeroed. Their economic P&L is kept for display only. They still update the average price.
+4. Sales are grouped by month and sorted by date (then id). Within a month, tax is charged only on profit above the month-to-date cumulative P&L, so earlier losses in the month offset later gains.
+5. **R$20k exemption** (Ações e ETFs group only): if a month's total `Ação` sales (ETFs excluded) are ≤ R$20,000 and its `Ação` profit is positive, the tax on those sales is removed and the month is flagged `has_exemption`.
+6. **Accumulated loss** is carried across months, starting from a user-entered initial loss for the group/year. Exempt profit does not offset it, and the balance never goes positive.
 
-**Initial accumulated loss:** The user can manually enter a prior-year accumulated loss per tax group/year, which is carried into the monthly calculations.
-
-**Summary cards:** Total Sales, Total Profit/Loss, Total Tax Due.
+Summary cards: Total Vendas, Lucro/Prejuízo, Imposto Devido, and Lucro Isento (exempt profit from months with `has_exemption`).
 
 #### Tab 2: "Por Ativo" (Per Asset)
 
 - Select a ticker and a year.
-- **Year-end snapshots:** Shows position (quantity, total value, average price) at Dec 31 of the selected year and the previous year — useful for annual tax declarations.
-- **Full trade history:** Table showing every operation for the ticker with running quantity and running average price after each trade.
+- **Year-end snapshots**: position (quantity, total cost, average price) at Dec 31 of the selected and previous year — useful for the annual declaration.
+- **Full trade history** with running quantity and running average price after each trade.
 
-### 9.6 Configurações — [Configuracoes.tsx](file:///home/joao/Documents/repos/portfolio-tracker/src/pages/Configuracoes.tsx)
+### 9.6 Configurações — [Configuracoes.tsx](src/pages/Configuracoes.tsx)
 
-Minimal settings page:
-- Displays the authenticated user's email.
-- Logout button (calls `supabase.auth.signOut()`, redirects to `/auth`).
+Shows the authenticated user's email and a logout button (`supabase.auth.signOut()`, redirect to `/auth`).
 
 ---
 
 ## 10. Formatting Utilities
 
-All in [formatters.ts](file:///home/joao/Documents/repos/portfolio-tracker/src/lib/formatters.ts):
+All in [formatters.ts](src/lib/formatters.ts):
 
 | Function | Purpose |
 |---|---|
@@ -376,8 +358,8 @@ All in [formatters.ts](file:///home/joao/Documents/repos/portfolio-tracker/src/l
 | `parseDateBRShort(s)` | Parses `DD/MM/YY` |
 | `parseNumberBR(s)` | Parses `1.234,56` → `1234.56` |
 | `parseCurrencyBR(s)` | Strips `R$` prefix, then `parseNumberBR()` |
-| `extractTicker(s)` | Extracts ticker from `"PETR4 - PETROBRAS S.A."` format |
-| `normalizeMovementType(s)` | Maps Portuguese movement labels to enum |
+| `extractTicker(s)` | Extracts ticker from `"PETR4 - PETROBRAS S.A."` |
+| `normalizeMovementType(s)` | Maps Portuguese movement labels to the enum (§7.1) |
 
 ---
 
@@ -385,15 +367,15 @@ All in [formatters.ts](file:///home/joao/Documents/repos/portfolio-tracker/src/l
 
 ### 11.1 Theme
 
-Defined entirely through CSS custom properties in [index.css](file:///home/joao/Documents/repos/portfolio-tracker/src/index.css). The theme uses an **Emerald Financial** palette:
+Defined through CSS custom properties in [index.css](src/index.css), using an **Emerald Financial** palette:
 
-- **Primary:** HSL `160 84% 39%` (emerald green) — used for positive values and brand accents.
-- **Destructive:** HSL `0 84% 60%` (red) — used for sell operations and errors.
-- **Success:** HSL `142 76% 36%` (green) — used for buy indicators.
+- **Primary:** HSL `160 84% 39%` (emerald) — positive values and brand accents.
+- **Destructive:** HSL `0 84% 60%` (red) — sells and errors.
+- **Success:** HSL `142 76% 36%` (green) — buys.
 - **Warning:** HSL `38 92% 50%` (amber).
-- **Sidebar:** Dark navy (`215 28% 17%`) with emerald accents.
+- **Sidebar:** dark navy (`215 28% 17%`) with emerald accents.
 
-Full dark mode is defined but **no toggle is implemented in the UI** — it would be activated by a system-level `prefers-color-scheme: dark` preference (via the `next-themes` dependency, though no `ThemeProvider` is currently mounted).
+Dark-mode variables are defined, but there is no toggle and no `ThemeProvider` is mounted (`next-themes` is installed but unused).
 
 ### 11.2 Custom Utility Classes
 
@@ -415,28 +397,26 @@ graph LR
     C -->|User confirms| D[Import.tsx]
     D -->|Deduplicate + Insert| E[(Supabase PostgreSQL)]
     E -->|useQuery + paginated fetch| F[Pages]
+    F -->|useMutation edits| E
+    F -->|cost basis| P[portfolio-calculations.ts]
     F -->|classifyAsset| G[asset-classifier.ts]
     F -->|formatCurrencyBRL etc.| H[formatters.ts]
     F -->|Recharts| I[Charts]
 ```
 
-**Key pattern:** All data queries paginate through Supabase's 1000-row limit with a `while(true)` loop using `.range(from, from + pageSize - 1)`. This is done client-side in every page that needs the full dataset.
+**Key pattern:** every page that needs data fetches the user's full dataset with a `while` loop over `.range(from, from + pageSize - 1)` (page size 1000) to get past the PostgREST row limit, then filters and aggregates in memory.
 
 ---
 
 ## 13. Notable Patterns & Decisions
 
-1. **No backend logic:** All business logic (average price calculation, tax computation, deduplication) runs **client-side** in React. There are no Supabase Edge Functions, stored procedures, or database views.
-
-2. **Full data fetch:** Every page that needs data fetches **all records** for the user. There is no server-side filtering, aggregation, or pagination beyond the query cache provided by React Query.
-
-3. **Static asset classification:** Ticker classification is determined at build time from bundled CSV files. This means the classifier is only as current as the CSV data in the repository.
-
-4. **No testing infrastructure:** There are no unit tests, integration tests, or end-to-end tests in the repository.
-
-5. **`lovable-tagger`:** The project appears to have been scaffolded by the [Lovable](https://lovable.dev) AI code generator, as evidenced by the `lovable-tagger` dev dependency, the `index.html` TODO comments referencing "Lovable App", and the auto-generated Supabase types file.
-
-6. **Deduplication strategy:** Two layers — application-level frequency map comparison before insert, plus database-level unique composite indexes as a safety net.
+1. **No backend logic:** average price, tax computation and deduplication all run **client-side**. There are no Edge Functions, stored procedures or views.
+2. **Full data fetch:** no server-side filtering, aggregation or pagination beyond React Query's cache.
+3. **Duplicated cost-basis logic:** Posição uses `calculatePositions()` (unit-tested), while the IR page has three inline copies of the same rules (§9.0).
+4. **Static asset classification:** determined at build time from bundled CSVs.
+5. **Application-only deduplication:** frequency-map matching before insert; the DB allows duplicates on purpose.
+6. **Environment:** `.env` is gitignored; `.env.example` lists the required `VITE_SUPABASE_*` variables. Every `VITE_` variable is embedded in the client bundle, so only the publishable key belongs there.
+7. **Lovable origin:** scaffolded with [Lovable](https://lovable.dev) (`lovable-tagger`, generated Supabase client/types).
 
 ---
 
@@ -444,13 +424,16 @@ graph LR
 
 | Area | Observation |
 |---|---|
-| **Market prices** | No live or historical market price integration. The "Posição" page shows cost-basis value only, not current market value. |
-| **Dark mode toggle** | `next-themes` is installed and dark mode CSS vars are defined, but no `ThemeProvider` or toggle UI exists. Dark mode only activates via OS preference. |
-| **SEO / Meta tags** | `index.html` still has Lovable placeholder text for `<title>`, `og:title`, and `og:description`. |
-| **Form validation** | `zod` and `react-hook-form` are installed but unused — auth forms use raw `useState`. |
-| **DB constraint mismatch** | The `movement_type` CHECK constraint in the original DDL only allows `BUY`/`SELL`, but the app writes 6 distinct values. This is presumably fixed by migration `20260201215723_allow_all_movements.sql`. |
-| **Proventos pagination** | The Proventos page renders all filtered results without client-side pagination (unlike Negociações which paginates at 50 items). This could cause performance issues with large datasets. |
-| **Tax computation** | The R$20K monthly exemption for stocks (swing-trade) is **not implemented**. The page does not account for day-trade vs. swing-trade tax rate differences (15% vs. 20%). |
-| **Error handling** | Most Supabase errors are caught and shown via `sonner` toasts, but there is no global error boundary. |
-| **No tests** | Zero automated test coverage. |
-| **CSV data freshness** | The asset classification CSVs (`Acoes.csv`, `FIIs.csv`, etc.) are static snapshots. New IPOs or fund listings require manual CSV updates. |
+| **Market prices** | No live or historical prices. Posição shows cost basis only. |
+| **Dashboard totals** | "Total Investido" and the distribution pie use `Σ BUY − Σ SELL` at **sale value**, not the cost basis. In the pie, every non-`BUY` movement counts as negative. Values diverge from Posição after profitable or losing sales. |
+| **Initial accumulated loss** | Entered on the IR page but kept only in React state. It is lost on reload. |
+| **Tax computation** | No distinction between day-trade (20%) and swing-trade (15%). The R$20k exemption applies to `Ação` sales only. |
+| **Migration replay** | The migrations cannot be replayed from an empty database (§4.4). Use `schema_unified.sql` for new databases. |
+| **Proventos pagination** | Proventos renders all filtered rows without pagination (Negociações paginates at 50). |
+| **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
+| **SEO / Meta tags** | `index.html` has a generic description, and `og:image` still points to Lovable's default image. |
+| **Form validation** | `zod` and `react-hook-form` are unused. Forms use raw `useState`. |
+| **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |
+| **Duplicated average cost** | Four implementations of the cost basis with slightly different edge-case behavior (§9.0). Posição and IR can disagree for oversold positions. |
+| **Test coverage** | Only `calculatePositions()` is tested. The IR cost-basis loops, parsers, deduplication and IR month/exemption logic are not. |
+| **CSV data freshness** | Asset classification CSVs are static snapshots. New listings require manual updates. |
