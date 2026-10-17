@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm install
+npm install            # needs npm >= 11 (npm 9/10 crash on this dependency tree; use `npx npm@11 install`)
 npm run dev            # Vite dev server on http://localhost:8080
 npm run build          # production build
 npm run lint           # eslint
