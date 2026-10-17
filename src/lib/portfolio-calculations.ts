@@ -1,4 +1,5 @@
 import { classifyAsset } from './asset-classifier';
+import { parseISODateLocal } from './formatters';
 
 export interface TradeForCalculation {
   ticker: string;
@@ -16,49 +17,95 @@ export interface Position {
   totalValue: number;
 }
 
-export function calculatePositions(trades: TradeForCalculation[] | null | undefined): Position[] {
-  const positionsMap = new Map<string, { ticker: string; currentQty: number; currentValue: number }>();
+/** Running quantity and total cost of a single ticker (weighted average cost method). */
+export interface CostBasis {
+  quantity: number;
+  totalCost: number;
+}
 
-  if (trades && trades.length > 0) {
-    // Ensure trades are strictly sorted by date
-    const sortedTrades = [...trades].sort((a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime());
+export const EMPTY_COST_BASIS: CostBasis = { quantity: 0, totalCost: 0 };
 
-    for (const trade of sortedTrades) {
-      const ticker = trade.ticker;
-      if (!positionsMap.has(ticker)) {
-        positionsMap.set(ticker, { ticker, currentQty: 0, currentValue: 0 });
-      }
+type CostBasisTrade = Pick<TradeForCalculation, 'quantity' | 'total_value' | 'movement_type'>;
+type DatedCostBasisTrade = CostBasisTrade & Pick<TradeForCalculation, 'trade_date'>;
 
-      const pos = positionsMap.get(ticker)!;
-      const qty = Number(trade.quantity);
-      const total = Number(trade.total_value);
+function tradeTime(date: string | Date): number {
+  if (date instanceof Date) return date.getTime();
+  return parseISODateLocal(date)?.getTime() ?? 0;
+}
 
-      if (trade.movement_type === 'BUY' || trade.movement_type === 'BONUS' || trade.movement_type === 'SPLIT') {
-        pos.currentQty += qty;
-        pos.currentValue += total;
-      } else if (trade.movement_type === 'SELL') {
-        const avgPrice = pos.currentQty > 0 ? pos.currentValue / pos.currentQty : 0;
-        pos.currentQty -= qty;
-        pos.currentValue -= (avgPrice * qty);
-      } else if (trade.movement_type === 'AMORTIZATION') {
-        pos.currentValue -= total;
-      } else if (trade.movement_type === 'REVERSE_SPLIT') {
-        pos.currentQty -= qty;
-      }
+/** Returns a copy sorted by trade date ascending (stable: same-day trades keep input order). */
+export function sortTradesByDate<T extends Pick<TradeForCalculation, 'trade_date'>>(trades: T[]): T[] {
+  return [...trades].sort((a, b) => tradeTime(a.trade_date) - tradeTime(b.trade_date));
+}
+
+export function getAveragePrice(basis: CostBasis): number {
+  return basis.quantity > 0 ? basis.totalCost / basis.quantity : 0;
+}
+
+/**
+ * Applies one trade to a cost basis and returns the new state.
+ * - BUY / BONUS: add quantity and cost
+ * - SELL: remove quantity at the current average price (average price unchanged)
+ * - AMORTIZATION: reduce cost, keep quantity
+ * - SPLIT / REVERSE_SPLIT: change quantity, keep cost (average price is diluted/concentrated)
+ * A SELL or REVERSE_SPLIT that takes the quantity to zero or below resets the position.
+ */
+export function applyTradeToCostBasis(basis: CostBasis, trade: CostBasisTrade): CostBasis {
+  const qty = Number(trade.quantity);
+  const value = Number(trade.total_value);
+  let { quantity, totalCost } = basis;
+
+  switch (trade.movement_type) {
+    case 'BUY':
+    case 'BONUS':
+      quantity += qty;
+      totalCost += value;
+      break;
+    case 'SELL': {
+      const avgPrice = getAveragePrice(basis);
+      quantity -= qty;
+      if (quantity <= 0) return { ...EMPTY_COST_BASIS };
+      totalCost = avgPrice * quantity;
+      break;
     }
+    case 'AMORTIZATION':
+      totalCost -= value;
+      break;
+    case 'SPLIT':
+      quantity += qty;
+      break;
+    case 'REVERSE_SPLIT':
+      quantity -= qty;
+      if (quantity <= 0) return { ...EMPTY_COST_BASIS };
+      break;
+    default:
+      return basis;
   }
 
-  return Array.from(positionsMap.values())
-    .map((pos) => {
-      const avgPrice = pos.currentQty > 0 ? pos.currentValue / pos.currentQty : 0;
-      return {
-        ticker: pos.ticker,
-        assetClass: classifyAsset(pos.ticker),
-        quantity: pos.currentQty,
-        avgPrice,
-        totalValue: pos.currentValue,
-      };
-    })
+  return { quantity, totalCost };
+}
+
+/** Cost basis of a single ticker's trades (sorted by date before being applied). */
+export function calculateCostBasis(trades: DatedCostBasisTrade[]): CostBasis {
+  return sortTradesByDate(trades).reduce(applyTradeToCostBasis, EMPTY_COST_BASIS);
+}
+
+export function calculatePositions(trades: TradeForCalculation[] | null | undefined): Position[] {
+  const basisByTicker = new Map<string, CostBasis>();
+
+  for (const trade of sortTradesByDate(trades ?? [])) {
+    const current = basisByTicker.get(trade.ticker) ?? EMPTY_COST_BASIS;
+    basisByTicker.set(trade.ticker, applyTradeToCostBasis(current, trade));
+  }
+
+  return Array.from(basisByTicker.entries())
+    .map(([ticker, basis]) => ({
+      ticker,
+      assetClass: classifyAsset(ticker),
+      quantity: basis.quantity,
+      avgPrice: getAveragePrice(basis),
+      totalValue: basis.totalCost,
+    }))
     .filter((p) => p.quantity > 0)
     .sort((a, b) => b.totalValue - a.totalValue);
 }

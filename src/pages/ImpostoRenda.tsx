@@ -25,6 +25,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
 import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
+import {
+  applyTradeToCostBasis,
+  calculateCostBasis,
+  EMPTY_COST_BASIS,
+  getAveragePrice,
+  sortTradesByDate,
+} from '@/lib/portfolio-calculations';
 import { cn } from '@/lib/utils';
 import { Receipt, Calendar, TrendingUp, TrendingDown, Calculator } from 'lucide-react';
 
@@ -194,57 +201,16 @@ export default function ImpostoRenda() {
       return { quantity: 0, totalValue: 0, averagePrice: 0 };
     }
 
-    const tickerTrades = trades
-      .filter((t) => {
-        const tradeDate = parseISODateLocal(t.trade_date);
-        return t.ticker === selectedTicker && tradeDate && tradeDate <= endDate;
-      })
-      .sort((a, b) => {
-        const dateA = parseISODateLocal(a.trade_date);
-        const dateB = parseISODateLocal(b.trade_date);
-        return (dateA?.getTime() ?? 0) - (dateB?.getTime() ?? 0);
-      });
-
-    let runningQuantity = 0;
-    let totalCost = 0;
-
-    tickerTrades.forEach((trade) => {
-      const qty = Number(trade.quantity);
-      const value = Number(trade.total_value);
-
-      if (trade.movement_type === 'BUY' || trade.movement_type === 'BONUS') {
-        // BUY and BONUS: increase quantity and total cost
-        totalCost += value;
-        runningQuantity += qty;
-      } else if (trade.movement_type === 'SELL') {
-        // SELL: reduce quantity proportionally
-        runningQuantity -= qty;
-        if (runningQuantity > 0) {
-          const avgPrice = totalCost / (runningQuantity + qty);
-          totalCost = avgPrice * runningQuantity;
-        } else {
-          totalCost = 0;
-          runningQuantity = 0;
-        }
-      } else if (trade.movement_type === 'AMORTIZATION') {
-        totalCost -= value;
-      } else if (trade.movement_type === 'SPLIT') {
-        // SPLIT: increase quantity, keep total cost, recalc average price
-        runningQuantity += qty;
-      } else if (trade.movement_type === 'REVERSE_SPLIT') {
-        // REVERSE_SPLIT: decrease quantity, keep total cost, recalc average price
-        runningQuantity -= qty;
-        if (runningQuantity <= 0) {
-          runningQuantity = 0;
-          totalCost = 0;
-        }
-      }
+    const tickerTrades = trades.filter((t) => {
+      const tradeDate = parseISODateLocal(t.trade_date);
+      return t.ticker === selectedTicker && tradeDate && tradeDate <= endDate;
     });
+    const basis = calculateCostBasis(tickerTrades);
 
     return {
-      quantity: runningQuantity,
-      totalValue: totalCost,
-      averagePrice: runningQuantity > 0 ? totalCost / runningQuantity : 0,
+      quantity: basis.quantity,
+      totalValue: basis.totalCost,
+      averagePrice: getAveragePrice(basis),
     };
   };
 
@@ -268,61 +234,20 @@ export default function ImpostoRenda() {
   const tradesWithRunning = useMemo(() => {
     if (!trades || !selectedTicker) return [];
 
-    const tickerTrades = trades
-      .filter((t) => t.ticker === selectedTicker)
-      .sort((a, b) => {
-        const dateA = parseISODateLocal(a.trade_date);
-        const dateB = parseISODateLocal(b.trade_date);
-        return (dateA?.getTime() ?? 0) - (dateB?.getTime() ?? 0);
-      });
+    let basis = EMPTY_COST_BASIS;
 
-    let runningQuantity = 0;
-    let totalCost = 0;
-
-    return tickerTrades.map((trade): TradeWithRunning => {
-      const qty = Number(trade.quantity);
-      const value = Number(trade.total_value);
-
-      if (trade.movement_type === 'BUY' || trade.movement_type === 'BONUS') {
-        // BUY and BONUS: increase quantity and total cost
-        totalCost += value;
-        runningQuantity += qty;
-      } else if (trade.movement_type === 'SELL') {
-        // SELL: reduce quantity proportionally
-        runningQuantity -= qty;
-        if (runningQuantity > 0) {
-          // Adjust total cost proportionally
-          const avgPrice = totalCost / (runningQuantity + qty);
-          totalCost = avgPrice * runningQuantity;
-        } else {
-          totalCost = 0;
-          runningQuantity = 0;
-        }
-      } else if (trade.movement_type === 'AMORTIZATION') {
-        totalCost -= value;
-      } else if (trade.movement_type === 'SPLIT') {
-        // SPLIT: increase quantity, keep total cost
-        runningQuantity += qty;
-      } else if (trade.movement_type === 'REVERSE_SPLIT') {
-        // REVERSE_SPLIT: decrease quantity, keep total cost
-        runningQuantity -= qty;
-        if (runningQuantity <= 0) {
-          runningQuantity = 0;
-          totalCost = 0;
-        }
-      }
-
-      const runningAveragePrice = runningQuantity > 0 ? totalCost / runningQuantity : 0;
+    return sortTradesByDate(trades.filter((t) => t.ticker === selectedTicker)).map((trade): TradeWithRunning => {
+      basis = applyTradeToCostBasis(basis, trade);
 
       return {
         id: trade.id,
         trade_date: trade.trade_date,
         movement_type: trade.movement_type,
-        quantity: qty,
+        quantity: Number(trade.quantity),
         price: Number(trade.price),
-        total_value: value,
-        runningQuantity,
-        runningAveragePrice,
+        total_value: Number(trade.total_value),
+        runningQuantity: basis.quantity,
+        runningAveragePrice: getAveragePrice(basis),
       };
     });
   }, [trades, selectedTicker]);
@@ -349,83 +274,52 @@ export default function ImpostoRenda() {
     const salesWithProfit: SaleWithProfit[] = [];
 
     tickersByGroup.forEach((ticker) => {
-      const tickerTrades = trades
-        .filter((t) => t.ticker === ticker)
-        .sort((a, b) => {
-          const dateA = parseISODateLocal(a.trade_date);
-          const dateB = parseISODateLocal(b.trade_date);
-          return (dateA?.getTime() ?? 0) - (dateB?.getTime() ?? 0);
-        });
+      let basis = EMPTY_COST_BASIS;
 
-      let runningQuantity = 0;
-      let totalCost = 0;
-
-      tickerTrades.forEach((trade) => {
+      sortTradesByDate(trades.filter((t) => t.ticker === ticker)).forEach((trade) => {
         const qty = Number(trade.quantity);
         const value = Number(trade.total_value);
         const tradeDate = parseISODateLocal(trade.trade_date);
         const tradeYear = tradeDate?.getFullYear() ?? 0;
 
         // Calculate average price BEFORE the sale
-        const avgPriceBeforeSale = runningQuantity > 0 ? totalCost / runningQuantity : 0;
+        const avgPriceBeforeSale = getAveragePrice(basis);
 
-        if (trade.movement_type === 'BUY' || trade.movement_type === 'BONUS') {
-          totalCost += value;
-          runningQuantity += qty;
-        } else if (trade.movement_type === 'SELL') {
+        if (trade.movement_type === 'SELL' && tradeYear === yearFilter) {
           // Record the sale with profit/loss calculation
-          if (tradeYear === yearFilter) {
-            const salePrice = Number(trade.price);
-            const profitLoss = (salePrice - avgPriceBeforeSale) * qty;
-            const runningAfterSale = runningQuantity - qty;
-            const oversoldPosition = runningAfterSale < 0;
+          const salePrice = Number(trade.price);
+          const profitLoss = (salePrice - avgPriceBeforeSale) * qty;
+          const runningAfterSale = basis.quantity - qty;
+          const oversoldPosition = runningAfterSale < 0;
 
-            // Tax rate from group config
-            const rawTaxDue = profitLoss > 0 ? profitLoss * groupConfig.rate : 0;
-            const taxDue = oversoldPosition ? 0 : rawTaxDue;
-            const excludedFromIr = Boolean(trade.exclude_from_ir);
+          // Tax rate from group config
+          const rawTaxDue = profitLoss > 0 ? profitLoss * groupConfig.rate : 0;
+          const taxDue = oversoldPosition ? 0 : rawTaxDue;
+          const excludedFromIr = Boolean(trade.exclude_from_ir);
 
-            const month = tradeDate ? tradeDate.toLocaleString('pt-BR', { month: 'long' }) : '';
-            const year = tradeDate?.getFullYear() ?? 0;
+          const month = tradeDate ? tradeDate.toLocaleString('pt-BR', { month: 'long' }) : '';
+          const year = tradeDate?.getFullYear() ?? 0;
 
-            salesWithProfit.push({
-              id: trade.id,
-              ticker,
-              trade_date: trade.trade_date,
-              quantity: qty,
-              sale_price: salePrice,
-              total_sale_value: value,
-              average_price_at_sale: avgPriceBeforeSale,
-              profit_loss: excludedFromIr ? 0 : profitLoss,
-              tax_due: excludedFromIr ? 0 : taxDue,
-              month,
-              year,
-              excluded_from_ir: excludedFromIr,
-              economic_profit_loss: excludedFromIr ? profitLoss : undefined,
-              economic_tax_due: excludedFromIr ? (oversoldPosition ? 0 : rawTaxDue) : undefined,
-              oversold_position: oversoldPosition,
-            });
-          }
-
-          // Update running values
-          runningQuantity -= qty;
-          if (runningQuantity > 0) {
-            totalCost = avgPriceBeforeSale * runningQuantity;
-          } else {
-            totalCost = 0;
-            runningQuantity = 0;
-          }
-        } else if (trade.movement_type === 'AMORTIZATION') {
-          totalCost -= value;
-        } else if (trade.movement_type === 'SPLIT') {
-          runningQuantity += qty;
-        } else if (trade.movement_type === 'REVERSE_SPLIT') {
-          runningQuantity -= qty;
-          if (runningQuantity <= 0) {
-            runningQuantity = 0;
-            totalCost = 0;
-          }
+          salesWithProfit.push({
+            id: trade.id,
+            ticker,
+            trade_date: trade.trade_date,
+            quantity: qty,
+            sale_price: salePrice,
+            total_sale_value: value,
+            average_price_at_sale: avgPriceBeforeSale,
+            profit_loss: excludedFromIr ? 0 : profitLoss,
+            tax_due: excludedFromIr ? 0 : taxDue,
+            month,
+            year,
+            excluded_from_ir: excludedFromIr,
+            economic_profit_loss: excludedFromIr ? profitLoss : undefined,
+            economic_tax_due: excludedFromIr ? (oversoldPosition ? 0 : rawTaxDue) : undefined,
+            oversold_position: oversoldPosition,
+          });
         }
+
+        basis = applyTradeToCostBasis(basis, trade);
       });
     });
 
