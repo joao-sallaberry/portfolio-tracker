@@ -419,7 +419,6 @@ export default function ImpostoRenda() {
                           <TableHead className="text-right">Preço Médio</TableHead>
                           <TableHead className="text-right">Valor Total</TableHead>
                           <TableHead className="text-right">Lucro/Prejuízo</TableHead>
-                          <TableHead className="text-right">Imposto</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -459,13 +458,6 @@ export default function ImpostoRenda() {
                                 </span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right text-orange-600">
-                              {sale.excluded_from_ir ? (
-                                <span className="text-muted-foreground">—</span>
-                              ) : (
-                                formatCurrencyBRL(sale.tax_due)
-                              )}
-                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -475,9 +467,6 @@ export default function ImpostoRenda() {
                           <TableCell className="text-right font-medium">{formatCurrencyBRL(monthData.total_sales)}</TableCell>
                           <TableCell className={`text-right font-bold ${monthData.total_profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {formatCurrencyBRL(monthData.total_profit_loss)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-orange-600">
-                            {formatCurrencyBRL(monthData.total_tax_due)}
                           </TableCell>
                         </TableRow>
                       </TableFooter>

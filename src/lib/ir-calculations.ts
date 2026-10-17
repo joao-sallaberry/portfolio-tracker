@@ -33,13 +33,11 @@ export interface SaleWithProfit {
   total_sale_value: number;
   average_price_at_sale: number;
   profit_loss: number;
-  tax_due: number;
   month: string;
   year: number;
   excluded_from_ir: boolean;
   /** Economic P&L when excluded_from_ir (display only) */
   economic_profit_loss?: number;
-  economic_tax_due?: number;
   /** Sale without book position (quantity would go negative) */
   oversold_position?: boolean;
 }
@@ -67,7 +65,8 @@ export interface IrGrandTotals {
 
 /**
  * Sales of one tax group in one year, with profit/loss and tax, grouped by month (ascending).
- * `initialAccumulatedLoss` (≤ 0) seeds the running accumulated loss shown per month.
+ * `initialAccumulatedLoss` (≤ 0) is the loss carried into the year; it and every later monthly
+ * loss are offset against the following months' taxable results.
  */
 export function calculateSalesByTaxGroup(
   trades: IrTrade[],
@@ -105,9 +104,6 @@ export function calculateSalesByTaxGroup(
         const runningAfterSale = basis.quantity - qty;
         const oversoldPosition = runningAfterSale < 0;
 
-        // Tax rate from group config
-        const rawTaxDue = profitLoss > 0 ? profitLoss * groupConfig.rate : 0;
-        const taxDue = oversoldPosition ? 0 : rawTaxDue;
         const excludedFromIr = Boolean(trade.exclude_from_ir);
 
         const month = tradeDate ? tradeDate.toLocaleString('pt-BR', { month: 'long' }) : '';
@@ -121,12 +117,10 @@ export function calculateSalesByTaxGroup(
           total_sale_value: value,
           average_price_at_sale: avgPriceBeforeSale,
           profit_loss: excludedFromIr ? 0 : profitLoss,
-          tax_due: excludedFromIr ? 0 : taxDue,
           month,
           year: tradeYear,
           excluded_from_ir: excludedFromIr,
           economic_profit_loss: excludedFromIr ? profitLoss : undefined,
-          economic_tax_due: excludedFromIr ? (oversoldPosition ? 0 : rawTaxDue) : undefined,
           oversold_position: oversoldPosition,
         });
       }
@@ -166,7 +160,6 @@ export function calculateSalesByTaxGroup(
     if (!sale.excluded_from_ir) {
       monthData.total_sales += sale.total_sale_value;
       monthData.total_profit_loss += sale.profit_loss;
-      monthData.total_tax_due += sale.tax_due;
 
       if (classifyAsset(sale.ticker) === 'Ação') {
         monthData.total_acao_sales! += sale.total_sale_value;
@@ -186,10 +179,14 @@ export function calculateSalesByTaxGroup(
     });
   });
 
-  // Tax is due on the month's consolidated result: gains and losses of all sales in the
-  // month offset each other, regardless of their order.
+  // Tax is due on each month's consolidated result (gains and losses of the month offset
+  // each other, regardless of their order), after offsetting the loss carried from previous
+  // months, starting with the user-entered initial loss.
   const taxRate = groupConfig.rate;
-  monthlyMap.forEach((monthData) => {
+  const sortedMonths = Array.from(monthlyMap.values()).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+  let accumulatedLoss = Math.min(0, initialAccumulatedLoss);
+
+  sortedMonths.forEach((monthData) => {
     // Stock profit is exempt when the month's stock sales are up to R$20k
     monthData.has_exemption =
       taxGroup === 'Ações e ETFs' &&
@@ -197,47 +194,20 @@ export function calculateSalesByTaxGroup(
       monthData.total_acao_sales! <= MONTHLY_EXEMPTION_LIMIT &&
       monthData.total_acao_profit! > 0;
 
+    // Exempt stock profit neither pays tax nor consumes the accumulated loss
     const taxableSales = monthData.sales.filter(
       (sale) => !sale.excluded_from_ir && !(monthData.has_exemption && classifyAsset(sale.ticker) === 'Ação')
     );
 
-    // Oversold sales (missing purchase history) can reduce the base, but their gains are never taxed
-    const taxBase = Math.max(
-      0,
-      taxableSales.reduce((sum, sale) => sum + (sale.oversold_position ? Math.min(0, sale.profit_loss) : sale.profit_loss), 0)
+    // Oversold sales (missing purchase history) count as losses, but their gains are never taxed
+    const monthResult = taxableSales.reduce(
+      (sum, sale) => sum + (sale.oversold_position ? Math.min(0, sale.profit_loss) : sale.profit_loss),
+      0
     );
-    const monthTax = taxBase * taxRate;
-
-    // Spread the month's tax over the taxed gains, so the per-sale column adds up to the month total
-    const taxedGains = taxableSales.filter((sale) => !sale.oversold_position && sale.profit_loss > 0);
-    const totalTaxedGains = taxedGains.reduce((sum, sale) => sum + sale.profit_loss, 0);
-    monthData.sales.forEach((sale) => {
-      sale.tax_due = 0;
-    });
-    taxedGains.forEach((sale) => {
-      sale.tax_due = totalTaxedGains > 0 ? monthTax * (sale.profit_loss / totalTaxedGains) : 0;
-    });
-    monthData.total_tax_due = monthTax;
-  });
-
-  // Sort by month and calculate accumulated loss
-  const sortedMonths = Array.from(monthlyMap.values()).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
-
-  // Calculate accumulated loss from the beginning of the year, starting with initial loss
-  let accumulatedLoss = initialAccumulatedLoss;
-  sortedMonths.forEach((monthData) => {
-    let effectiveProfitForLossCalc = monthData.total_profit_loss;
-
-    if (monthData.has_exemption && monthData.total_acao_profit! > 0) {
-      effectiveProfitForLossCalc -= monthData.total_acao_profit!;
-    }
-
-    accumulatedLoss += effectiveProfitForLossCalc;
-    // Only losses are tracked: a positive balance resets to zero
-    monthData.accumulated_loss = accumulatedLoss < 0 ? accumulatedLoss : 0;
-    if (accumulatedLoss > 0) {
-      accumulatedLoss = 0;
-    }
+    const balance = accumulatedLoss + monthResult;
+    monthData.total_tax_due = Math.max(0, balance) * taxRate;
+    accumulatedLoss = Math.min(0, balance);
+    monthData.accumulated_loss = accumulatedLoss;
   });
 
   return sortedMonths;

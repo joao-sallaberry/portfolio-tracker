@@ -45,7 +45,6 @@ describe('calculateSalesByTaxGroup', () => {
     expect(months[0].total_sales).toBe(17500);
     expect(months[0].has_exemption).toBe(true);
     expect(months[0].total_tax_due).toBe(0);
-    expect(months[0].sales[0].tax_due).toBe(0);
     expect(calculateGrandTotals(months).total_exempt_profit).toBe(2500);
   });
 
@@ -71,7 +70,6 @@ describe('calculateSalesByTaxGroup', () => {
     const [march] = months;
     expect(march.total_profit_loss).toBe(5000);
     expect(march.sales.map((s) => s.ticker)).toEqual(['VALE3', 'PETR4']);
-    expect(march.sales[1].tax_due).toBeCloseTo(750); // 15% of the 5.000 left after the loss
     expect(march.total_tax_due).toBeCloseTo(750);
   });
 
@@ -91,7 +89,6 @@ describe('calculateSalesByTaxGroup', () => {
     expect(january.total_profit_loss).toBeLessThan(0);
     expect(january.has_exemption).toBe(false);
     expect(january.total_tax_due).toBe(0);
-    expect(january.sales.every((s) => s.tax_due === 0)).toBe(true);
   });
 
   it('gives the same tax whatever the order of the sales in the month', () => {
@@ -112,10 +109,9 @@ describe('calculateSalesByTaxGroup', () => {
 
     expect(gainFirst[0].total_tax_due).toBeCloseTo(750);
     expect(lossFirst[0].total_tax_due).toBeCloseTo(750);
-    expect(gainFirst[0].sales.find((s) => s.ticker === 'PETR4')!.tax_due).toBeCloseTo(750);
   });
 
-  it('spreads the month tax over the gains in proportion to each gain', () => {
+  it('taxes the net of several gains and losses in the month', () => {
     const months = calculateSalesByTaxGroup([
       trade('PETR4', '2025-01-10', 'BUY', 1000, 30),
       trade('VALE3', '2025-01-10', 'BUY', 1000, 60),
@@ -125,13 +121,8 @@ describe('calculateSalesByTaxGroup', () => {
       trade('ITUB4', '2025-03-07', 'SELL', 1000, 17), // -3.000
     ], 'Ações e ETFs', 2025);
 
-    const [march] = months;
-    expect(march.total_tax_due).toBeCloseTo(1800); // 15% of 12.000
-    expect(march.sales.map((s) => s.tax_due)).toEqual([
-      expect.closeTo(1200), // 2/3 of the gains
-      expect.closeTo(600), // 1/3 of the gains
-      0,
-    ]);
+    expect(months[0].total_profit_loss).toBe(12000);
+    expect(months[0].total_tax_due).toBeCloseTo(1800); // 15% of 12.000
   });
 
   it('taxes ETFs on their own result when the stock exemption applies', () => {
@@ -145,7 +136,6 @@ describe('calculateSalesByTaxGroup', () => {
     const [february] = months;
     expect(february.has_exemption).toBe(true);
     expect(february.total_tax_due).toBeCloseTo(150);
-    expect(february.sales.find((s) => s.ticker === 'PETR4')!.tax_due).toBe(0);
   });
 
   it('lets losses from oversold sales reduce the base but never taxes their gains', () => {
@@ -159,7 +149,6 @@ describe('calculateSalesByTaxGroup', () => {
     const [march] = months;
     const vale = march.sales.find((s) => s.ticker === 'VALE3')!;
     expect(vale.oversold_position).toBe(true);
-    expect(vale.tax_due).toBe(0);
     expect(vale.profit_loss).toBe(-1000);
     expect(march.total_tax_due).toBeCloseTo(1350); // 15% of 10.000 - 1.000
   });
@@ -172,6 +161,51 @@ describe('calculateSalesByTaxGroup', () => {
     ], 'Ações e ETFs', 2025, -1000);
 
     expect(months.map((m) => m.accumulated_loss)).toEqual([-6000, -4000]);
+    expect(months.map((m) => m.total_tax_due)).toEqual([0, 0]); // May's gain is absorbed by the loss
+  });
+
+  it('offsets losses from previous months against later gains', () => {
+    const months = calculateSalesByTaxGroup([
+      trade('VALE3', '2025-01-10', 'BUY', 1000, 60),
+      trade('PETR4', '2025-01-10', 'BUY', 1000, 30),
+      trade('VALE3', '2025-04-10', 'SELL', 1000, 55), // -5.000
+      trade('PETR4', '2025-05-10', 'SELL', 1000, 38), // +8.000
+    ], 'Ações e ETFs', 2025);
+
+    const [april, may] = months;
+    expect(april.total_tax_due).toBe(0);
+    expect(april.accumulated_loss).toBe(-5000);
+    expect(may.total_tax_due).toBeCloseTo(450); // 15% of 8.000 - 5.000
+    expect(may.accumulated_loss).toBe(0);
+  });
+
+  it('offsets the initial accumulated loss', () => {
+    const trades = [
+      trade('PETR4', '2025-01-10', 'BUY', 1000, 30),
+      trade('PETR4', '2025-05-10', 'SELL', 1000, 38), // +8.000
+    ];
+
+    expect(calculateSalesByTaxGroup(trades, 'Ações e ETFs', 2025, -3000)[0].total_tax_due).toBeCloseTo(750);
+    expect(calculateSalesByTaxGroup(trades, 'Ações e ETFs', 2025, -10000)[0]).toMatchObject({
+      total_tax_due: 0,
+      accumulated_loss: -2000,
+    });
+  });
+
+  it('keeps the loss for ETF gains in exempt months', () => {
+    const months = calculateSalesByTaxGroup([
+      trade('VALE3', '2025-01-10', 'BUY', 1000, 60),
+      trade('PETR4', '2025-01-10', 'BUY', 500, 30),
+      trade('BOVA11', '2025-01-10', 'BUY', 100, 100),
+      trade('VALE3', '2025-04-10', 'SELL', 1000, 59), // -1.000
+      trade('PETR4', '2025-05-10', 'SELL', 500, 35), // +2.500, exempt
+      trade('BOVA11', '2025-05-11', 'SELL', 100, 104), // +400
+    ], 'Ações e ETFs', 2025);
+
+    const may = months[1];
+    expect(may.has_exemption).toBe(true);
+    expect(may.total_tax_due).toBe(0); // the ETF gain is absorbed by April's loss
+    expect(may.accumulated_loss).toBe(-600);
   });
 
   it('never lets the accumulated loss become positive', () => {
@@ -205,9 +239,7 @@ describe('calculateSalesByTaxGroup', () => {
     const [sale] = months[0].sales;
     expect(sale.excluded_from_ir).toBe(true);
     expect(sale.profit_loss).toBe(0);
-    expect(sale.tax_due).toBe(0);
     expect(sale.economic_profit_loss).toBe(10000);
-    expect(sale.economic_tax_due).toBeCloseTo(1500);
     expect(months[0].total_sales).toBe(0);
     expect(months[0].total_tax_due).toBe(0);
     expect(months[0].has_exemption).toBe(false);
@@ -232,7 +264,6 @@ describe('calculateSalesByTaxGroup', () => {
 
     const [sale] = months[0].sales;
     expect(sale.oversold_position).toBe(true);
-    expect(sale.tax_due).toBe(0);
     expect(months[0].total_tax_due).toBe(0);
   });
 
