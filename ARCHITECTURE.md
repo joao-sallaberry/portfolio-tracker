@@ -446,7 +446,6 @@ graph LR
 | **Tax computation** | No distinction between day-trade (20%) and swing-trade (15%). The R$20k exemption applies to `Ação` sales only. Losses from previous months are tracked as the accumulated loss but not deducted from later taxable gains, so the tax due can be overstated. |
 | **Proventos pagination** | Proventos renders all filtered rows without pagination (Negociações paginates at 50). |
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
-| **SEO / Meta tags** | `index.html` has a generic description, and `og:image` still points to Lovable's default image. |
 | **Form validation** | Forms use raw `useState` without a validation library. |
 | **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |
 | **Test coverage** | The cost basis, ticker normalization and IR sales logic are tested. Parsers, import deduplication and the IR "Por Ativo" tab are not. |
