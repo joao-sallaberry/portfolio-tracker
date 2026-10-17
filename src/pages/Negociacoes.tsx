@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
+import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal, normalizeTicker } from '@/lib/formatters';
 import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -82,7 +82,7 @@ export default function Negociacoes() {
         trade_date,
         movement_type,
         movement_type_raw,
-        ticker,
+        ticker: normalizeTicker(ticker),
         institution,
         quantity,
         price,

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { parseDateBR, parseDateBRShort, parseNumberBR, parseCurrencyBR, extractTicker, normalizeMovementType } from './formatters';
+import { parseDateBR, parseDateBRShort, parseNumberBR, parseCurrencyBR, extractTicker, normalizeMovementType, normalizeTicker } from './formatters';
 
 export interface DividendEventRow {
   productRaw: string;
@@ -159,7 +159,7 @@ export function parseProventosFile(file: File): Promise<ParseResult<DividendEven
             
             parsedRows.push({
               productRaw,
-              ticker: extractTicker(productRaw),
+              ticker: normalizeTicker(extractTicker(productRaw)),
               paymentDate,
               eventType,
               institution,
@@ -265,7 +265,7 @@ export function parseNegociacaoFile(file: File): Promise<ParseResult<TradeOperat
             const maturityRaw = row[columnIndexes['Prazo/Vencimento']];
             const maturity = maturityRaw && maturityRaw !== '-' ? String(maturityRaw).trim() : null;
             const institution = String(row[columnIndexes['Instituição']] || '').trim();
-            const ticker = String(row[columnIndexes['Código de Negociação']] || '').trim();
+            const ticker = normalizeTicker(String(row[columnIndexes['Código de Negociação']] || ''));
             const quantity = parseNumberBR(row[columnIndexes['Quantidade']] as string | number);
             const price = parseNumberBR(row[columnIndexes['Preço']] as string | number);
             const totalValue = parseNumberBR(row[columnIndexes['Valor']] as string | number);
@@ -472,7 +472,7 @@ function parseNegociacaoCSV(file: File): Promise<ParseResult<TradeOperationRow>>
               market: 'Bovespa',
               maturity: null,
               institution: 'Importação Manual',
-              ticker: ticker || '',
+              ticker: normalizeTicker(ticker || ''),
               quantity,
               price,
               totalValue,
