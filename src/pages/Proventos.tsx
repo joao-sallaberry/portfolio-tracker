@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useDividendEvents } from '@/hooks/use-portfolio-data';
+import { usePagination } from '@/hooks/use-pagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -113,16 +114,12 @@ export default function Proventos() {
     });
   }, [filteredDividends, sortConfig]);
 
-  // Reset to page 1 when filters or sorting change
-  const [currentPage, setCurrentPage] = useState(1);
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [startDate, endDate, eventType, assetClass, tickerFilter, sortConfig]);
-
-  const paginatedDividends = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return sortedDividends.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [sortedDividends, currentPage]);
+  // Back to page 1 whenever the filters or the sorting change
+  const { currentPage, setCurrentPage, pageItems: paginatedDividends } = usePagination(
+    sortedDividends,
+    ITEMS_PER_PAGE,
+    JSON.stringify([startDate, endDate, eventType, assetClass, tickerFilter, sortConfig])
+  );
 
   const totalDividends = filteredDividends.reduce((sum, d) => sum + Number(d.net_value), 0);
   const currentYear = new Date().getFullYear();

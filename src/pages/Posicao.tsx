@@ -50,8 +50,8 @@ export default function Posicao() {
     };
 
     const sortedPositions = [...classPositions].sort((a, b) => {
-      let valA: string | number = 0;
-      let valB: string | number = 0;
+      let valA: string | number;
+      let valB: string | number;
 
       if (sortKey === 'ticker') {
         valA = a.ticker;

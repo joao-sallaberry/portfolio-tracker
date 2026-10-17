@@ -86,6 +86,7 @@ test('IR taxes the consolidated month, carries the loss and saves the initial lo
   await page.fill('#initial-loss', '1000');
   await page.keyboard.press('Tab');
   expect((await saved).ok()).toBe(true);
+  await expect(page.locator('#initial-loss')).toHaveValue(/^R\$\s1\.000,00$/);
 
   await page.reload();
   await expect(page.locator('#initial-loss')).toHaveValue(/^R\$\s1\.000,00$/);
@@ -104,4 +105,8 @@ test('dividends are paginated and the total covers every filtered row', async ({
   await expect(page.getByText('Mostrando 51 a 60 de 60 proventos')).toBeVisible();
   await expect(page.locator('tbody tr')).toHaveCount(10);
   await expect(page.locator('tfoot')).toContainText('R$ 1.360,00');
+
+  // Changing the sorting goes back to the first page
+  await page.getByRole('columnheader', { name: /Valor Líquido/ }).click();
+  await expect(page.getByText('Mostrando 1 a 50 de 60 proventos')).toBeVisible();
 });

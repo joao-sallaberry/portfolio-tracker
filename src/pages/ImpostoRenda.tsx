@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTradeOperations, type TradeOperation } from '@/hooks/use-portfolio-data';
@@ -77,7 +77,8 @@ export default function ImpostoRenda() {
 
   // Initial accumulated loss per tax group and year, stored in ir_initial_losses
   const queryClient = useQueryClient();
-  const [localInputValue, setLocalInputValue] = useState<string>('');
+  // Text being typed in the initial loss input; null shows the stored value
+  const [initialLossDraft, setInitialLossDraft] = useState<string | null>(null);
 
   const getInitialLossKey = (group: string, year: string | number) => `${group}-${year}`;
 
@@ -119,22 +120,21 @@ export default function ImpostoRenda() {
 
   const initialAccumulatedLoss = initialLosses[getInitialLossKey(selectedTaxGroup, selectedSalesYear)] ?? 0;
 
-  // Sync the input when the stored value changes (e.g. switching years/groups)
-  useEffect(() => {
-    setLocalInputValue(initialAccumulatedLoss === 0 ? '' : formatCurrencyBRL(Math.abs(initialAccumulatedLoss)));
-  }, [initialAccumulatedLoss]);
+  const initialLossInputValue =
+    initialLossDraft ?? (initialAccumulatedLoss === 0 ? '' : formatCurrencyBRL(Math.abs(initialAccumulatedLoss)));
 
   const handleInputChange = (value: string) => {
-    setLocalInputValue(value);
+    setInitialLossDraft(value);
   };
 
   const handleInputBlur = () => {
-    const numValue = parseFloat(localInputValue.replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
+    if (initialLossDraft === null) return;
+    const numValue = parseFloat(initialLossDraft.replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
     // Ensure it's negative or zero (it's a loss)
     const lossValue = numValue > 0 ? -numValue : numValue;
 
-    // Re-format the display value
-    setLocalInputValue(lossValue === 0 ? '' : formatCurrencyBRL(Math.abs(lossValue)));
+    // Show the stored (formatted) value again; the mutation updates it right away
+    setInitialLossDraft(null);
 
     if (lossValue !== initialAccumulatedLoss) {
       saveInitialLoss.mutate({ group: selectedTaxGroup, year: selectedSalesYear, amount: lossValue });
@@ -303,7 +303,7 @@ export default function ImpostoRenda() {
                     id="initial-loss"
                     type="text"
                     placeholder="R$ 0,00"
-                    value={localInputValue}
+                    value={initialLossInputValue}
                     onChange={(e) => handleInputChange(e.target.value)}
                     onBlur={handleInputBlur}
                     className="w-36 h-8 text-sm"
