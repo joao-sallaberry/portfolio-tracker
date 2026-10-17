@@ -103,8 +103,13 @@ test('IR taxes the consolidated month, carries the loss and saves the initial lo
 test('dividends are paginated and the total covers every filtered row', async ({ page }) => {
   await page.goto('/proventos');
   await expect(page.getByText('Mostrando 1 a 50 de 60 proventos')).toBeVisible();
-  // The monthly chart draws bars
-  await expect(page.locator('.recharts-bar-rectangle').first()).toBeVisible();
+  // The monthly chart draws bars, and hovering one shows the month's values by asset class
+  const bar = page.locator('.recharts-bar-rectangle').first();
+  await expect(bar).toBeVisible();
+  await bar.hover();
+  const tooltip = page.locator('.recharts-tooltip-wrapper');
+  await expect(tooltip).toContainText('R$ 18,00'); // Ações: EGIE3 + PETR4
+  await expect(tooltip).toContainText('R$ 50,00'); // FII: MXRF11
   await expect(page.locator('tbody tr')).toHaveCount(50);
   await expect(page.locator('tfoot')).toContainText('R$ 1.360,00');
 
