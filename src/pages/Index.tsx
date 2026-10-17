@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrencyBRL, formatNumber } from '@/lib/formatters';
+import { formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
 import { BarChart3, Wallet, TrendingUp, Activity, PieChart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell, Legend } from 'recharts';
-import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
+import { AssetClass } from '@/lib/asset-classifier';
+import { calculatePositions } from '@/lib/portfolio-calculations';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
@@ -76,30 +77,27 @@ export default function Index() {
   const isLoading = tradesLoading || dividendsLoading;
   const currentYear = new Date().getFullYear();
 
-  // Calculate KPIs
-  const totalInvested = trades
-    ?.filter(t => t.movement_type === 'BUY')
-    .reduce((sum, t) => sum + Number(t.total_value), 0) || 0;
-  
-  const totalSold = trades
-    ?.filter(t => t.movement_type === 'SELL')
-    .reduce((sum, t) => sum + Number(t.total_value), 0) || 0;
+  // Database dates are YYYY-MM-DD; parse them as local dates so day 1 doesn't fall into the previous month
+  const yearOf = (date: string) => parseISODateLocal(date)?.getFullYear();
 
-  const netInvested = totalInvested - totalSold;
+  // Cost basis of the current positions (same calculation as the Posição page)
+  const positions = calculatePositions(trades);
+  const netInvested = positions.reduce((sum, p) => sum + p.totalValue, 0);
 
   const totalDividends = dividends?.reduce((sum, d) => sum + Number(d.net_value), 0) || 0;
   
   const dividendsThisYear = dividends
-    ?.filter(d => new Date(d.payment_date).getFullYear() === currentYear)
+    ?.filter(d => yearOf(d.payment_date) === currentYear)
     .reduce((sum, d) => sum + Number(d.net_value), 0) || 0;
 
   const operationsThisYear = trades
-    ?.filter(t => new Date(t.trade_date).getFullYear() === currentYear)
+    ?.filter(t => yearOf(t.trade_date) === currentYear)
     .length || 0;
 
   // Monthly dividends chart data
   const monthlyDividends = dividends?.reduce((acc, d) => {
-    const date = new Date(d.payment_date);
+    const date = parseISODateLocal(d.payment_date);
+    if (!date) return acc;
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     acc[key] = (acc[key] || 0) + Number(d.net_value);
     return acc;
@@ -129,12 +127,10 @@ export default function Index() {
     }));
 
   // Portfolio distribution by asset class
-  const classInvested = trades?.reduce((acc, t) => {
-    const sign = t.movement_type === 'BUY' ? 1 : -1;
-    const assetClass = classifyAsset(t.ticker);
-    acc[assetClass] = (acc[assetClass] || 0) + (sign * Number(t.total_value));
+  const classInvested = positions.reduce((acc, p) => {
+    acc[p.assetClass] = (acc[p.assetClass] || 0) + p.totalValue;
     return acc;
-  }, {} as Record<AssetClass, number>) || ({} as Record<AssetClass, number>);
+  }, {} as Record<AssetClass, number>);
 
   const portfolioDistribution = (Object.entries(classInvested) as Array<[AssetClass, number]>)
     .filter(([, value]) => value > 0)
@@ -187,7 +183,7 @@ export default function Index() {
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              Compras - Vendas
+              Custo das posições atuais
             </p>
           </CardContent>
         </Card>
