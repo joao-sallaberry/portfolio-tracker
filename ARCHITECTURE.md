@@ -63,6 +63,8 @@ portfolio-tracker/
     ├── lib/
     │   ├── portfolio-calculations.ts       # Cost basis / average price (shared)
     │   ├── portfolio-calculations.test.ts  # Vitest unit tests
+    │   ├── ir-calculations.ts  # IR sales, monthly tax, exemption, accumulated loss
+    │   ├── ir-calculations.test.ts
     │   ├── formatters.ts       # BRL currency, dates, number parsing
     │   ├── asset-classifier.ts # Ticker → asset class lookup
     │   ├── xlsx-parser.ts      # XLSX/CSV → typed row arrays with per-row errors
@@ -310,7 +312,7 @@ Uses `calculatePositions()` (§9.0). Positions are grouped by asset class (Açõ
 
 ### 9.5 Imposto de Renda — [ImpostoRenda.tsx](src/pages/ImpostoRenda.tsx)
 
-Two tabs, both built on the shared cost basis (§9.0).
+Two tabs, both built on the shared cost basis (§9.0). The Tab 1 logic lives in [ir-calculations.ts](src/lib/ir-calculations.ts) (`calculateSalesByTaxGroup`, `calculateGrandTotals`, `TAX_GROUPS`) and is covered by `ir-calculations.test.ts`. The page only fetches data and renders.
 
 #### Tab 1: "Vendas por Classe" (Sales by Tax Group)
 
@@ -327,7 +329,7 @@ For the selected group and year:
 3. **Sales excluded from IR** (`exclude_from_ir`) are listed but have `profit_loss` and `tax_due` zeroed. Their economic P&L is kept for display only. They still update the average price.
 4. Sales are grouped by month and sorted by date (then id). Within a month, tax is charged only on profit above the month-to-date cumulative P&L, so earlier losses in the month offset later gains.
 5. **R$20k exemption** (Ações e ETFs group only): if a month's total `Ação` sales (ETFs excluded) are ≤ R$20,000 and its `Ação` profit is positive, the tax on those sales is removed and the month is flagged `has_exemption`.
-6. **Accumulated loss** is carried across months, starting from a user-entered initial loss for the group/year. Exempt profit does not offset it, and the balance never goes positive.
+6. **Accumulated loss** is carried across months, starting from a user-entered initial loss for the group/year. Exempt profit does not offset it, and the balance never goes positive. It is **displayed only**: it does not reduce the tax due in later months (§14).
 
 Summary cards: Total Vendas, Lucro/Prejuízo, Imposto Devido, and Lucro Isento (exempt profit from months with `has_exemption`).
 
@@ -428,12 +430,12 @@ graph LR
 | **Market prices** | No live or historical prices. Posição shows cost basis only. |
 | **Dashboard totals** | "Total Investido" and the distribution pie use `Σ BUY − Σ SELL` at **sale value**, not the cost basis. In the pie, every non-`BUY` movement counts as negative. Values diverge from Posição after profitable or losing sales. |
 | **Initial accumulated loss** | Entered on the IR page but kept only in React state. It is lost on reload. |
-| **Tax computation** | No distinction between day-trade (20%) and swing-trade (15%). The R$20k exemption applies to `Ação` sales only. |
+| **Tax computation** | No distinction between day-trade (20%) and swing-trade (15%). The R$20k exemption applies to `Ação` sales only. Losses from previous months are tracked as the accumulated loss but not deducted from later taxable gains, so the tax due can be overstated. |
 | **Migration replay** | The migrations cannot be replayed from an empty database (§4.4). Use `schema_unified.sql` for new databases. |
 | **Proventos pagination** | Proventos renders all filtered rows without pagination (Negociações paginates at 50). |
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **SEO / Meta tags** | `index.html` has a generic description, and `og:image` still points to Lovable's default image. |
 | **Form validation** | `zod` and `react-hook-form` are unused. Forms use raw `useState`. |
 | **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |
-| **Test coverage** | Only `portfolio-calculations.ts` is tested. Parsers, deduplication and IR month/exemption logic are not. |
+| **Test coverage** | The cost basis, ticker normalization and IR sales logic are tested. Parsers, import deduplication and the IR "Por Ativo" tab are not. |
 | **CSV data freshness** | Asset classification CSVs are static snapshots. New listings require manual updates. |
