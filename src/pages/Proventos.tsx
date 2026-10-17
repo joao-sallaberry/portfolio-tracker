@@ -213,7 +213,8 @@ export default function Proventos() {
         const localDate = new Date(year, monthNum - 1, 1);
         return {
           month: format(localDate, 'MMM/yy', { locale: ptBR }),
-          ...values,
+          // Classes without dividends that month are left out, so the tooltip skips them
+          ...Object.fromEntries(Object.entries(values).map(([assetClass, value]) => [assetClass, value || undefined])),
         };
       });
   }, [filteredDividends]);
@@ -331,7 +332,15 @@ export default function Proventos() {
                 <ChartTooltip
                   content={
                     <ChartTooltipContent
-                      formatter={(value) => formatCurrencyBRL(Number(value))}
+                      formatter={(value, name, item) => (
+                        <div className="flex w-full items-center gap-2">
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: item.color }} />
+                          <span className="text-muted-foreground">{chartConfig[name as AssetClass]?.label ?? name}</span>
+                          <span className="ml-auto font-mono font-medium tabular-nums text-foreground">
+                            {formatCurrencyBRL(Number(value))}
+                          </span>
+                        </div>
+                      )}
                     />
                   }
                 />

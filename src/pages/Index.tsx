@@ -1,7 +1,7 @@
 import { useDividendEvents, useTradeOperations } from '@/hooks/use-portfolio-data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
+import { formatCurrencyBRL, formatCurrencyCompactBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
 import { BarChart3, Wallet, TrendingUp, Activity, PieChart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell, Legend } from 'recharts';
 import { AssetClass } from '@/lib/asset-classifier';
@@ -218,7 +218,7 @@ export default function Index() {
                     tick={{ fontSize: 12 }}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={formatCurrencyCompactBRL}
                   />
                   <Tooltip 
                     formatter={(value: number) => formatCurrencyBRL(value)}
@@ -231,6 +231,7 @@ export default function Index() {
                   />
                   <Bar 
                     dataKey="value" 
+                    name="Proventos" 
                     fill="hsl(var(--primary))"
                     radius={[4, 4, 0, 0]}
                   />
@@ -310,7 +311,7 @@ export default function Index() {
                   tick={{ fontSize: 12 }}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                  tickFormatter={formatCurrencyCompactBRL}
                 />
                 <YAxis 
                   dataKey="ticker" 
@@ -328,7 +329,7 @@ export default function Index() {
                     borderRadius: '8px',
                   }}
                 />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="value" name="Proventos" radius={[0, 4, 4, 0]}>
                   {topTickers.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
