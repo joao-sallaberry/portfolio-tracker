@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTradeOperations } from '@/hooks/use-portfolio-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,33 +15,7 @@ type SortDirection = 'asc' | 'desc';
 export default function Posicao() {
   const [sortKey, setSortKey] = useState<SortKey>('totalValue');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const { data: trades, isLoading } = useQuery({
-    queryKey: ['trade_operations_positions'],
-    queryFn: async () => {
-      const allData: any[] = [];
-      let from = 0;
-      const pageSize = 1000;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('trade_operations')
-          .select('ticker, quantity, price, total_value, movement_type, trade_date')
-          .order('trade_date', { ascending: true })
-          .range(from, from + pageSize - 1);
-
-        if (error) throw error;
-        if (data) {
-          allData.push(...data);
-          hasMore = data.length === pageSize;
-          from += pageSize;
-        } else {
-          hasMore = false;
-        }
-      }
-      return allData;
-    },
-  });
+  const { data: trades, isLoading } = useTradeOperations();
 
   const positions: Position[] = calculatePositions(trades);
 

@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { TRADE_OPERATIONS_KEY, useTradeOperations } from '@/hooks/use-portfolio-data';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,36 +35,9 @@ export default function Negociacoes() {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingTrade, setEditingTrade] = useState<any | null>(null);
 
-  const { data: trades, isLoading } = useQuery({
-    queryKey: ['trade-operations', 'v2'],
-    queryFn: async () => {
-      // Fetch all records using pagination to bypass the 1000 row limit
-      const allRecords: any[] = [];
-      const pageSize = 1000;
-      let from = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('trade_operations')
-          .select('*')
-          .order('trade_date', { ascending: false })
-          .range(from, from + pageSize - 1);
-        
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          allRecords.push(...data);
-          from += pageSize;
-          hasMore = data.length === pageSize;
-        } else {
-          hasMore = false;
-        }
-      }
-      
-      return allRecords;
-    },
-  });
+  const { data: tradesAsc, isLoading } = useTradeOperations();
+  // Newest first for display
+  const trades = useMemo(() => (tradesAsc ? [...tradesAsc].reverse() : undefined), [tradesAsc]);
 
   const toggleExcludeFromIr = useMutation({
     mutationFn: async ({ id, exclude_from_ir }: { id: string; exclude_from_ir: boolean }) => {
@@ -71,7 +45,7 @@ export default function Negociacoes() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trade-operations'] });
+      queryClient.invalidateQueries({ queryKey: TRADE_OPERATIONS_KEY });
     },
   });
 
@@ -92,7 +66,7 @@ export default function Negociacoes() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trade-operations'] });
+      queryClient.invalidateQueries({ queryKey: TRADE_OPERATIONS_KEY });
       toast({
         title: "Negociação atualizada",
         description: "A negociação foi salva com sucesso.",

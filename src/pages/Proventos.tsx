@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useDividendEvents } from '@/hooks/use-portfolio-data';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,31 +39,9 @@ export default function Proventos() {
   const [chartAssetClasses, setChartAssetClasses] = useState<AssetClass[]>([...ASSET_CLASSES]);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
-  const { data: dividends, isLoading } = useQuery({
-    queryKey: ['dividend-events'],
-    queryFn: async () => {
-      // Fetch all rows (PostgREST paginates responses; default max is 1000 rows per request)
-      const pageSize = 1000;
-      let from = 0;
-      const all: any[] = [];
-
-      while (true) {
-        const { data, error } = await supabase
-          .from('dividend_events')
-          .select('*')
-          .order('payment_date', { ascending: false })
-          .range(from, from + pageSize - 1);
-
-        if (error) throw error;
-        all.push(...(data ?? []));
-
-        if (!data || data.length < pageSize) break;
-        from += pageSize;
-      }
-
-      return all;
-    },
-  });
+  const { data: dividendsAsc, isLoading } = useDividendEvents();
+  // Newest first for display
+  const dividends = useMemo(() => (dividendsAsc ? [...dividendsAsc].reverse() : undefined), [dividendsAsc]);
 
   // Get unique event types for the filter
   const eventTypes = useMemo(() => {

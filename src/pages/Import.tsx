@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Wallet, TrendingUp, Trash2 } from 'lucide-react';
 import { FileUploadCard } from '@/components/import/FileUploadCard';
 import { PreviewTable } from '@/components/import/PreviewTable';
 import { parseProventosFile, parseNegociacaoFileAuto, type DividendEventRow, type TradeOperationRow, type ParseResult } from '@/lib/xlsx-parser';
 import { supabase } from '@/integrations/supabase/client';
+import { DIVIDEND_EVENTS_KEY, TRADE_OPERATIONS_KEY, fetchAllDividendEvents, fetchAllTradeOperations } from '@/hooks/use-portfolio-data';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +35,7 @@ interface NegociacaoState {
 }
 
 export default function Import() {
+  const queryClient = useQueryClient();
   const [proventos, setProventos] = useState<ProventosState>({
     state: 'idle',
     parseResult: null,
@@ -110,14 +113,11 @@ export default function Import() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // 1. Fetch existing data for comparison (Limit to relevant fields usually, but select * is fine for small datasets)
-      // fetching all might be heavy for huge users, but for now it's okay.
-      const { data: existingEvents } = await supabase
-        .from('dividend_events')
-        .select('*');
+      // 1. Fetch all existing rows for comparison (a plain select stops at 1000 rows)
+      const existingEvents = await fetchAllDividendEvents();
 
       const existingMap = new Map<string, number>();
-      existingEvents?.forEach(ev => {
+      existingEvents.forEach(ev => {
         const key = `${ev.ticker}-${ev.payment_date}-${ev.event_type}-${ev.quantity}-${ev.net_value}`;
         existingMap.set(key, (existingMap.get(key) || 0) + 1);
       });
@@ -174,6 +174,7 @@ export default function Import() {
         .insert(rowsToInsert);
 
       if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: DIVIDEND_EVENTS_KEY });
 
       setProventos({
         state: 'success',
@@ -203,13 +204,11 @@ export default function Import() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // 1. Fetch existing data
-      const { data: existingTrades } = await supabase
-        .from('trade_operations')
-        .select('*');
+      // 1. Fetch all existing rows for comparison (a plain select stops at 1000 rows)
+      const existingTrades = await fetchAllTradeOperations();
 
       const existingMap = new Map<string, number>();
-      existingTrades?.forEach(tr => {
+      existingTrades.forEach(tr => {
         // Key excluding ID, created_at, etc
         const key = `${tr.trade_date}-${tr.movement_type}-${tr.ticker}-${tr.quantity}-${tr.total_value}`;
         existingMap.set(key, (existingMap.get(key) || 0) + 1);
@@ -265,6 +264,7 @@ export default function Import() {
         .insert(rowsToInsert);
 
       if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: TRADE_OPERATIONS_KEY });
 
       setNegociacao({
         state: 'success',
@@ -297,6 +297,7 @@ export default function Import() {
     try {
       const { error } = await supabase.from('dividend_events').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: DIVIDEND_EVENTS_KEY });
       toast.success('Histórico de proventos limpo com sucesso!');
     } catch (err) {
       toast.error('Erro ao limpar histórico de proventos');
@@ -307,6 +308,7 @@ export default function Import() {
     try {
       const { error } = await supabase.from('trade_operations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: TRADE_OPERATIONS_KEY });
       toast.success('Histórico de negociações limpo com sucesso!');
     } catch (err) {
       toast.error('Erro ao limpar histórico de negociações');
