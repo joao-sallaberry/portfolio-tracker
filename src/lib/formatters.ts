@@ -44,6 +44,19 @@ export function formatNumber(value: number, decimals = 2): string {
   }).format(value);
 }
 
+const compactBRL = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  notation: 'compact',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
+
+/** Short currency for chart axes: R$ 68, R$ 1,4 mil, R$ 2,5 mi */
+export function formatCurrencyCompactBRL(value: number): string {
+  return compactBRL.format(value);
+}
+
 export function formatCompactNumber(value: number): string {
   if (value >= 1_000_000) {
     return `${formatNumber(value / 1_000_000, 1)}M`;

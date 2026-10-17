@@ -71,6 +71,9 @@ test('dashboard uses the position cost and counts day-1 payments in their own ye
   await expect(card('Proventos por Mês').locator('.recharts-bar-rectangle')).toHaveCount(12);
   await expect(card('Proventos por Ativo').locator('.recharts-bar-rectangle')).toHaveCount(3);
   await expect(card('Distribuição do Portfólio').locator('.recharts-pie-sector')).not.toHaveCount(0);
+  // Axes use compact currency (small values used to round to "R$ 0k")
+  await expect(card('Proventos por Mês')).not.toContainText('0k');
+  await expect(card('Proventos por Mês')).toContainText(/R\$\s20/);
 });
 
 test('IR taxes the consolidated month, carries the loss and saves the initial loss', async ({ page }) => {
@@ -108,8 +111,9 @@ test('dividends are paginated and the total covers every filtered row', async ({
   await expect(bar).toBeVisible();
   await bar.hover();
   const tooltip = page.locator('.recharts-tooltip-wrapper');
-  await expect(tooltip).toContainText('R$ 18,00'); // Ações: EGIE3 + PETR4
-  await expect(tooltip).toContainText('R$ 50,00'); // FII: MXRF11
+  await expect(tooltip).toContainText(/Ações\s*R\$\s18,00/); // EGIE3 + PETR4
+  await expect(tooltip).toContainText(/FIIs\s*R\$\s50,00/); // MXRF11
+  await expect(tooltip).not.toContainText('R$ 0,00'); // classes without dividends are left out
   await expect(page.locator('tbody tr')).toHaveCount(50);
   await expect(page.locator('tfoot')).toContainText('R$ 1.360,00');
 
