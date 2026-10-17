@@ -56,6 +56,30 @@ export type Database = {
         }
         Relationships: []
       }
+      ir_initial_losses: {
+        Row: {
+          amount: number
+          tax_group: string
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          amount: number
+          tax_group: string
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          amount?: number
+          tax_group?: string
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       trade_operations: {
         Row: {
           created_at: string

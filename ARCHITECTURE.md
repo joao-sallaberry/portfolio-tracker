@@ -51,7 +51,7 @@ portfolio-tracker/
 ├── .env.example                # Template for .env (Supabase URL + publishable key)
 ├── supabase/
 │   ├── config.toml             # Supabase CLI project id
-│   ├── schema_unified.sql      # Full current DDL + RLS for a fresh database (see §4.4)
+│   ├── schema_unified.sql      # Full current DDL + RLS for a fresh database (see §4.5)
 │   └── migrations/             # 9 incremental migration files
 └── src/
     ├── main.tsx                # React root mount
@@ -91,7 +91,7 @@ portfolio-tracker/
 
 ## 4. Database Schema
 
-Two tables, both multi-tenant via `user_id`. The current schema is the result of applying all files in `supabase/migrations/` in order.
+Three tables, all multi-tenant via `user_id`. The current schema is the result of applying all files in `supabase/migrations/` in order.
 
 ### 4.1 `trade_operations`
 
@@ -128,13 +128,25 @@ Two tables, both multi-tenant via `user_id`. The current schema is the result of
 | `net_value` | NUMERIC | total net amount received |
 | `created_at` | TIMESTAMPTZ | auto `now()` |
 
-### 4.3 Indexes and Row-Level Security
+### 4.3 `ir_initial_losses`
+
+| Column | Type | Constraint |
+|---|---|---|
+| `user_id` | TEXT | PK part, **NOT NULL** |
+| `tax_group` | TEXT | PK part, `CHECK (IN ('Ações e ETFs', 'FIIs', 'Isentos'))` |
+| `year` | INTEGER | PK part |
+| `amount` | NUMERIC | `CHECK (amount <= 0)` |
+| `updated_at` | TIMESTAMPTZ | auto `now()` |
+
+Initial accumulated loss entered on the IR page (§9.5), one row per user, tax group and year. The page upserts on blur.
+
+### 4.4 Indexes and Row-Level Security
 
 - Lookup indexes on `user_id`, `ticker` and the date column of each table.
 - A composite **non-unique** index on the business columns of each table (`idx_*_dedupe_lookup`). These were originally unique, but migration `20260201215155_allow_duplicates.sql` dropped the uniqueness so that legitimate identical rows (e.g. two equal trades on the same day) can be stored. Deduplication is now **application-only** (§7.4).
-- Both tables have RLS enabled with SELECT/INSERT/UPDATE/DELETE policies enforcing `auth.uid()::text = user_id`.
+- All tables have RLS enabled with SELECT/INSERT/UPDATE/DELETE policies enforcing `auth.uid()::text = user_id`.
 
-### 4.4 Schema files
+### 4.5 Schema files
 
 `supabase/schema_unified.sql` builds the current schema from scratch in one run (paste it into the Supabase SQL Editor). It is the supported way to create a new database: replaying `supabase/migrations/` in order fails at `20260201205948_add_user_id_to_tables.sql`, which drops `idx_dividend_events_dedupe` without `IF EXISTS` after an earlier migration already removed it.
 
@@ -215,7 +227,7 @@ Before inserting, the page fetches **all existing records** for the user and bui
 - proventos: `ticker-payment_date-event_type-quantity-net_value`
 - negociações: `trade_date-movement_type-ticker-quantity-total_value`
 
-Each incoming row "consumes" one existing match; only rows beyond the existing count are inserted. Re-importing the same file adds nothing, while a file with three identical rows against one in the DB inserts two. The database no longer enforces uniqueness (§4.3).
+Each incoming row "consumes" one existing match; only rows beyond the existing count are inserted. Re-importing the same file adds nothing, while a file with three identical rows against one in the DB inserts two. The database no longer enforces uniqueness (§4.4).
 
 ### 7.5 Data Clearing
 
@@ -329,7 +341,7 @@ For the selected group and year:
 3. **Sales excluded from IR** (`exclude_from_ir`) are listed but have `profit_loss` and `tax_due` zeroed. Their economic P&L is kept for display only. They still update the average price.
 4. Sales are grouped by month and sorted by date (then id). Within a month, tax is charged only on profit above the month-to-date cumulative P&L, so earlier losses in the month offset later gains.
 5. **R$20k exemption** (Ações e ETFs group only): if a month's total `Ação` sales (ETFs excluded) are ≤ R$20,000 and its `Ação` profit is positive, the tax on those sales is removed and the month is flagged `has_exemption`.
-6. **Accumulated loss** is carried across months, starting from a user-entered initial loss for the group/year. Exempt profit does not offset it, and the balance never goes positive. It is **displayed only**: it does not reduce the tax due in later months (§14).
+6. **Accumulated loss** is carried across months, starting from a user-entered initial loss for the group/year (saved in `ir_initial_losses`, §4.3). Exempt profit does not offset it, and the balance never goes positive. It is **displayed only**: it does not reduce the tax due in later months (§14).
 
 Summary cards: Total Vendas, Lucro/Prejuízo, Imposto Devido, and Lucro Isento (exempt profit from months with `has_exemption`).
 
@@ -429,9 +441,8 @@ graph LR
 |---|---|
 | **Market prices** | No live or historical prices. Posição shows cost basis only. |
 | **Dashboard totals** | "Total Investido" and the distribution pie use `Σ BUY − Σ SELL` at **sale value**, not the cost basis. In the pie, every non-`BUY` movement counts as negative. Values diverge from Posição after profitable or losing sales. |
-| **Initial accumulated loss** | Entered on the IR page but kept only in React state. It is lost on reload. |
 | **Tax computation** | No distinction between day-trade (20%) and swing-trade (15%). The R$20k exemption applies to `Ação` sales only. Losses from previous months are tracked as the accumulated loss but not deducted from later taxable gains, so the tax due can be overstated. |
-| **Migration replay** | The migrations cannot be replayed from an empty database (§4.4). Use `schema_unified.sql` for new databases. |
+| **Migration replay** | The migrations cannot be replayed from an empty database (§4.5). Use `schema_unified.sql` for new databases. |
 | **Proventos pagination** | Proventos renders all filtered rows without pagination (Negociações paginates at 50). |
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **SEO / Meta tags** | `index.html` has a generic description, and `og:image` still points to Lovable's default image. |
