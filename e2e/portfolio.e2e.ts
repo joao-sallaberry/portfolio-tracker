@@ -41,6 +41,7 @@ const monthCard = (page: Page, month: string) => page.locator('.bg-card').filter
 test('imports trades and dividends, and skips duplicates on re-import', async ({ page }) => {
   await importFile(page, 'Negociações', tradesCsv());
   await expect(page.getByText('9 novas negociações importadas (0 duplicadas ignoradas).')).toBeVisible();
+  await expect(page.getByText('9 importadas com sucesso!')).toBeVisible(); // sonner toast
 
   await importFile(page, 'Negociações', tradesCsv());
   await expect(page.getByText('Todas as 9 negociações já estavam cadastradas.')).toBeVisible();
