@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -58,22 +59,53 @@ export default function ImpostoRenda() {
   const [selectedTaxGroup, setSelectedTaxGroup] = useState<TaxGroup>('Ações e ETFs');
   const [selectedSalesYear, setSelectedSalesYear] = useState<string>(new Date().getFullYear().toString());
 
-  // Initial accumulated loss per tax group and year
-  const [initialLosses, setInitialLosses] = useState<Record<string, number>>({});
+  // Initial accumulated loss per tax group and year, stored in ir_initial_losses
+  const queryClient = useQueryClient();
   const [localInputValue, setLocalInputValue] = useState<string>('');
 
-  const getInitialLossKey = (group: TaxGroup, year: string) => `${group}-${year}`;
+  const getInitialLossKey = (group: string, year: string | number) => `${group}-${year}`;
 
-  const initialAccumulatedLoss = useMemo(() => {
-    const key = getInitialLossKey(selectedTaxGroup, selectedSalesYear);
-    return initialLosses[key] ?? 0;
-  }, [initialLosses, selectedTaxGroup, selectedSalesYear]);
+  const { data: initialLosses = {} } = useQuery({
+    queryKey: ['ir-initial-losses'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('ir_initial_losses').select('tax_group, year, amount');
+      if (error) throw error;
+      return Object.fromEntries(
+        data.map((row) => [getInitialLossKey(row.tax_group, row.year), Number(row.amount)])
+      ) as Record<string, number>;
+    },
+  });
 
-  // Sync local input when the real value changes (e.g. switching years/groups)
-  // We only update if the parsed local value differs significantly to avoid cursor jumping if we were editing
-  useMemo(() => {
-    const formatted = initialAccumulatedLoss === 0 ? '' : formatCurrencyBRL(Math.abs(initialAccumulatedLoss));
-    setLocalInputValue(formatted);
+  const saveInitialLoss = useMutation({
+    mutationFn: async ({ group, year, amount }: { group: TaxGroup; year: string; amount: number }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+      const { error } = await supabase.from('ir_initial_losses').upsert(
+        { user_id: user.id, tax_group: group, year: parseInt(year), amount, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,tax_group,year' },
+      );
+      if (error) throw error;
+    },
+    // Update the cache right away so the calculation doesn't wait for the round trip
+    onMutate: ({ group, year, amount }) => {
+      queryClient.setQueryData<Record<string, number>>(['ir-initial-losses'], (prev) => ({
+        ...prev,
+        [getInitialLossKey(group, year)]: amount,
+      }));
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao salvar prejuízo acumulado: ${error.message}`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['ir-initial-losses'] });
+    },
+  });
+
+  const initialAccumulatedLoss = initialLosses[getInitialLossKey(selectedTaxGroup, selectedSalesYear)] ?? 0;
+
+  // Sync the input when the stored value changes (e.g. switching years/groups)
+  useEffect(() => {
+    setLocalInputValue(initialAccumulatedLoss === 0 ? '' : formatCurrencyBRL(Math.abs(initialAccumulatedLoss)));
   }, [initialAccumulatedLoss]);
 
   const handleInputChange = (value: string) => {
@@ -84,12 +116,13 @@ export default function ImpostoRenda() {
     const numValue = parseFloat(localInputValue.replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
     // Ensure it's negative or zero (it's a loss)
     const lossValue = numValue > 0 ? -numValue : numValue;
-    const key = getInitialLossKey(selectedTaxGroup, selectedSalesYear);
-
-    setInitialLosses(prev => ({ ...prev, [key]: lossValue }));
 
     // Re-format the display value
     setLocalInputValue(lossValue === 0 ? '' : formatCurrencyBRL(Math.abs(lossValue)));
+
+    if (lossValue !== initialAccumulatedLoss) {
+      saveInitialLoss.mutate({ group: selectedTaxGroup, year: selectedSalesYear, amount: lossValue });
+    }
   };
 
   const currentYear = new Date().getFullYear();
