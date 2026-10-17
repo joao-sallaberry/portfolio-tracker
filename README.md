@@ -69,12 +69,23 @@ npm run dev
 
 ## 🧪 Running Tests
 
-The application includes unit tests for the core business logic (e.g., portfolio and average cost calculations).
-
-To run the tests, execute:
+Unit tests cover the core business logic (average cost, income tax, ticker normalization, pagination):
 ```bash
 npm run test
 ```
+
+End-to-end tests drive the production build in Chromium with Playwright: they import sample statements and check the dashboard, positions, income tax and dividend pages.
+```bash
+npm run test:e2e
+```
+
+They need:
+- A **dedicated test account** in your Supabase project. The tests **delete all of its data** before running, and refuse to run if its email doesn't contain "test". Put its credentials in `.env.test.local` (gitignored):
+  ```env
+  TEST_USER_EMAIL=you+test@example.com
+  TEST_USER_PASSWORD=...
+  ```
+- **Chromium**: a system install is used when found (`/snap/bin/chromium`, `/usr/bin/chromium`, or `PLAYWRIGHT_CHROMIUM_PATH`); otherwise run `npx playwright install chromium`.
 
 ## 📐 Architecture & Logic
 

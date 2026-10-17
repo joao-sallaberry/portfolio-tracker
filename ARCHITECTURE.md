@@ -46,6 +46,8 @@ The entire UI is in **Brazilian Portuguese**.
 portfolio-tracker/
 ├── index.html                  # HTML shell (SPA entry)
 ├── vite.config.ts              # Build config, `@` → `./src` alias
+├── playwright.config.ts        # E2E: builds, serves on :4173, pt-BR / São Paulo timezone
+├── e2e/                        # Playwright tests against a dedicated test account
 ├── tailwind.config.ts          # Tailwind theme extensions
 ├── .env.example                # Template for .env (Supabase URL + publishable key)
 ├── supabase/
@@ -447,5 +449,5 @@ graph LR
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **Form validation** | Forms use raw `useState` without a validation library. |
 | **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |
-| **Test coverage** | The cost basis, ticker normalization and IR sales logic are tested. Parsers, import deduplication and the IR "Por Ativo" tab are not. |
+| **Test coverage** | Unit tests cover the cost basis, ticker normalization, pagination and IR sales logic. E2E tests (`npm run test:e2e`) cover import with deduplication, positions, dashboard totals, the IR page with the initial loss, and dividend pagination; they run against the hosted Supabase project (no local stack), using a dedicated test account. The IR "Por Ativo" tab and trade editing aren't covered. |
 | **CSV data freshness** | Asset classification CSVs are static snapshots. New listings require manual updates. |
