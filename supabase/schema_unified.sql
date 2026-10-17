@@ -1,7 +1,7 @@
 -- UNIFIED SCHEMA FOR PORTFOLIO TRACKER
 -- Run this in the Supabase SQL Editor to set up the entire database from scratch.
--- Equivalent to the final schema of supabase/migrations/ (through 20261017183131;
--- 20261017181622 is data-only and needs no change here).
+-- Equivalent to the final schema of supabase/migrations/ (through 20261017200901;
+-- 20261017181622 is data-only, and 20261017200901 drops indexes this file never creates).
 -- Keep it in sync when adding a migration.
 
 -- 1. Create Dividend Events Table

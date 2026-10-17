@@ -149,9 +149,12 @@ Initial accumulated loss entered on the IR page (§9.5), one row per user, tax g
 
 ### 4.5 Schema files
 
-`supabase/schema_unified.sql` builds the current schema from scratch in one run (paste it into the Supabase SQL Editor). It is the supported way to create a new database: replaying `supabase/migrations/` in order fails at `20260201205948_add_user_id_to_tables.sql`, which drops `idx_dividend_events_dedupe` without `IF EXISTS` after an earlier migration already removed it.
+There are two equivalent ways to build the schema from scratch:
 
-When changing the schema, add a migration (to apply to the existing database), update `schema_unified.sql` to match, and update `src/integrations/supabase/types.ts`.
+- `supabase/schema_unified.sql` in one run (paste it into the Supabase SQL Editor). The production database was created this way.
+- Replaying `supabase/migrations/` in order. The first migrations come from the Lovable era; `20261017200901_drop_legacy_lookup_indexes.sql` removes the indexes they created that production never had, so the result matches `schema_unified.sql` apart from column order.
+
+Every local migration is registered in production's migration history (`supabase_migrations.schema_migrations`), so `supabase db push` only applies new ones. When changing the schema, add a migration, apply it, make sure the file's version matches the registered one, update `schema_unified.sql` to match, and regenerate `src/integrations/supabase/types.ts`.
 
 ---
 
@@ -442,7 +445,6 @@ graph LR
 |---|---|
 | **Market prices** | No live or historical prices. Posição shows cost basis only. |
 | **Tax computation** | No distinction between day-trade (20%) and swing-trade (15%). The R$20k exemption applies to `Ação` sales only. Losses from previous months are tracked as the accumulated loss but not deducted from later taxable gains, so the tax due can be overstated. |
-| **Migration replay** | The migrations cannot be replayed from an empty database (§4.5). Use `schema_unified.sql` for new databases. |
 | **Proventos pagination** | Proventos renders all filtered rows without pagination (Negociações paginates at 50). |
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **SEO / Meta tags** | `index.html` has a generic description, and `og:image` still points to Lovable's default image. |
