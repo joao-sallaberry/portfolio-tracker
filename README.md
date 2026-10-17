@@ -24,7 +24,7 @@ It provides an intuitive interface to import brokerage account statements, brows
 - **Build Tool**: Vite 5
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS + shadcn/ui
-- **Routing**: React Router v6
+- **Routing**: React Router v7
 - **Data Fetching**: TanStack React Query v5
 - **Backend/Auth**: Supabase (PostgreSQL)
 - **Charts**: Recharts

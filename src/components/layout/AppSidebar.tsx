@@ -1,5 +1,5 @@
 import { BarChart3, TrendingUp, Wallet, Upload, Home, Briefcase, Receipt, Settings } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 import {
   Sidebar,
   SidebarContent,
