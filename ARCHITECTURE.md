@@ -175,7 +175,7 @@ The import page ([Import.tsx](src/pages/Import.tsx)) is the **primary data inges
 
 ### 7.1 File Parsing
 
-Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser returns `ParseResult<T>` with `data[]`, `errors[]` (file-level, e.g. missing headers), `warnings[]` and `totalRows`. Each parsed row carries `hasErrors` and `errorMessages[]`.
+Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes tickers with `normalizeTicker()`, so fractional-market tickers (`PETR4F`) are stored as the base ticker (`PETR4`). The fractional origin stays in `trade_operations.market` (`Mercado Fracionário`) for B3 XLSX imports. Every parser returns `ParseResult<T>` with `data[]`, `errors[]` (file-level, e.g. missing headers), `warnings[]` and `totalRows`. Each parsed row carries `hasErrors` and `errorMessages[]`.
 
 - **Proventos** (`parseProventosFile()`): B3 XLSX with columns `Produto`, `Pagamento`, `Tipo de Evento`, `Instituição`, `Quantidade`, `Preço unitário`, `Valor líquido`. A row is flagged when product, payment date or event type is missing/invalid.
 - **Negociações** (`parseNegociacaoFileAuto()` picks the format):
@@ -291,7 +291,7 @@ The dashboard does **not** use the shared cost basis (see §14).
 - Paginated table (50 items/page).
 - Filters: start/end date (native date inputs), movement type, ticker, asset class.
 - Summary cards: Total Compras (`BUY` + `BONUS`), Total Vendas (`SELL` + `AMORTIZATION`), operation count.
-- **Edit dialog**: changes date, type (also updates `movement_type_raw`), ticker, institution, quantity, price and total value through a `useMutation` that invalidates `['trade-operations']`.
+- **Edit dialog**: changes date, type (also updates `movement_type_raw`), ticker (normalized with `normalizeTicker()`), institution, quantity, price and total value through a `useMutation` that invalidates `['trade-operations']`.
 - **"Excluir do IR" switch** on `SELL` rows toggles `exclude_from_ir`.
 
 ### 9.3 Proventos — [Proventos.tsx](src/pages/Proventos.tsx)
@@ -359,6 +359,7 @@ All in [formatters.ts](src/lib/formatters.ts):
 | `parseNumberBR(s)` | Parses `1.234,56` → `1234.56` |
 | `parseCurrencyBR(s)` | Strips `R$` prefix, then `parseNumberBR()` |
 | `extractTicker(s)` | Extracts ticker from `"PETR4 - PETROBRAS S.A."` |
+| `normalizeTicker(s)` | Trims, uppercases and strips the fractional-market `F` suffix (`PETR4F` → `PETR4`) |
 | `normalizeMovementType(s)` | Maps Portuguese movement labels to the enum (§7.1) |
 
 ---

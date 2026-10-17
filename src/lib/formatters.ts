@@ -104,6 +104,13 @@ export function extractTicker(productRaw: string): string {
   return productRaw.trim();
 }
 
+// Fractional-market tickers carry an "F" suffix (PETR4F, TAEE11F) but are the same asset
+const FRACTIONAL_TICKER = /^([A-Z0-9]{4}\d{1,2})F$/;
+
+export function normalizeTicker(ticker: string): string {
+  return ticker.trim().toUpperCase().replace(FRACTIONAL_TICKER, '$1');
+}
+
 export function normalizeMovementType(type: string): 'BUY' | 'SELL' | 'SPLIT' | 'REVERSE_SPLIT' | 'BONUS' | 'AMORTIZATION' | 'UNKNOWN' {
   const normalized = type.toLowerCase().trim();
   if (normalized.includes('compra') || normalized === 'buy') {
