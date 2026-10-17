@@ -26,7 +26,7 @@ The entire UI is in **Brazilian Portuguese**.
 | **Build** | [Vite 8](vite.config.ts) + `@vitejs/plugin-react` | Dev server on port `8080`, `@` → `./src` alias |
 | **Tests** | Vitest 4 | Unit tests for the cost-basis logic (`npm run test`) |
 | **UI Framework** | React 19 (TypeScript, non-strict) | No SSR — pure SPA |
-| **Routing** | `react-router-dom` v6 | Client-side routing |
+| **Routing** | `react-router` v7 | Client-side routing (declarative `BrowserRouter` mode) |
 | **Styling** | TailwindCSS 3 + `tailwindcss-animate` | Theme defined in [index.css](src/index.css) with light/dark mode CSS variables |
 | **Component Library** | shadcn/ui (Radix primitives) | Only the 21 components in use live in `src/components/ui/`; add others with the shadcn CLI |
 | **Charts** | Recharts 2 | Bar charts, pie charts |

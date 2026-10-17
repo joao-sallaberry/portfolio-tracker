@@ -6,7 +6,7 @@ import { BarChart3, Wallet, TrendingUp, Activity, PieChart } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell, Legend } from 'recharts';
 import { AssetClass } from '@/lib/asset-classifier';
 import { calculatePositions } from '@/lib/portfolio-calculations';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 
 const CHART_COLORS = [
