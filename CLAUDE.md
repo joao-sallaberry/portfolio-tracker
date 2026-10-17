@@ -20,6 +20,10 @@ E2E tests (`e2e/*.e2e.ts`, config in `playwright.config.ts`) build the app, serv
 
 Requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `.env` (read by `src/integrations/supabase/client.ts`). `.env` is gitignored; copy it from `.env.example`. There is no local Supabase setup; the app talks to the hosted project whose id is set in `supabase/config.toml`. TypeScript runs non-strict (`strict: false`, `noImplicitAny: false`).
 
+## Deploy
+
+The frontend is hosted on Vercel (https://portfolio-tracker-blue-six.vercel.app), which builds and deploys every push to `main` through its GitHub integration; there is no deploy script. `vercel.json` rewrites every path to `index.html` so deep links (`/auth`, `/redefinir-senha` from emails) work. The build reads `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` from Vercel's environment variables and fails if they are missing (`vite.config.ts`), so a misconfigured deploy leaves the previous version live. Database changes are applied to Supabase separately (migrations), not by the deploy.
+
 ## What this is
 
 A client-only React SPA (Vite + TS + Tailwind + shadcn/ui + TanStack Query + Supabase) for tracking a personal portfolio on the Brazilian exchange (B3): import broker statements, browse trades and dividends, see the cost-basis position, and work out income tax (IR). The UI, routes and page names are in Brazilian Portuguese (`/negociacoes`, `/proventos`, `/posicao`, `/imposto-renda`, `/importar`). Keep new UI text in pt-BR and use `formatCurrencyBRL`/`formatDateBR` from `src/lib/formatters.ts`.
