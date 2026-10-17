@@ -117,3 +117,15 @@ test('dividends are paginated and the total covers every filtered row', async ({
   await page.getByRole('columnheader', { name: /Valor Líquido/ }).click();
   await expect(page.getByText('Mostrando 1 a 50 de 60 proventos')).toBeVisible();
 });
+
+test('unknown routes show the 404 page, and logged-out users are sent to login', async ({ page, browser }) => {
+  await page.goto('/rota-que-nao-existe');
+  await expect(page.getByText('Página não encontrada')).toBeVisible();
+  await page.getByRole('link', { name: 'Voltar para a Visão Geral' }).click();
+  await expect(page).toHaveURL('/');
+
+  const loggedOut = await browser.newPage({ baseURL: test.info().project.use.baseURL });
+  await loggedOut.goto('/imposto-renda');
+  await expect(loggedOut).toHaveURL('/auth');
+  await loggedOut.close();
+});
