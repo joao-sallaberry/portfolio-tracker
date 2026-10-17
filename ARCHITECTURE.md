@@ -183,7 +183,7 @@ Implemented in [Auth.tsx](src/pages/Auth.tsx).
 | `/configuracoes` | `Configuracoes` | User settings |
 | `*` | `NotFound` | 404 fallback |
 
-All routes except `/auth` are wrapped in [AppLayout](src/components/layout/AppLayout.tsx) (collapsible sidebar + header). Navigation items are defined in [AppSidebar.tsx](src/components/layout/AppSidebar.tsx).
+Pages are loaded on demand with `React.lazy` (a skeleton shows while a page's chunk downloads), so SheetJS ships only with Import and Recharts only with the chart pages. All routes except `/auth` are wrapped in [AppLayout](src/components/layout/AppLayout.tsx) (collapsible sidebar + header). Navigation items are defined in [AppSidebar.tsx](src/components/layout/AppSidebar.tsx).
 
 ---
 
