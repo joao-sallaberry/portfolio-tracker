@@ -20,7 +20,7 @@ It provides an intuitive interface to import brokerage account statements, brows
 
 ## 🛠 Tech Stack
 
-- **Frontend Framework**: React 18
+- **Frontend Framework**: React 19
 - **Build Tool**: Vite 5
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS + shadcn/ui

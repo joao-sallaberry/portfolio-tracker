@@ -66,6 +66,11 @@ test('dashboard uses the position cost and counts day-1 payments in their own ye
   // 01/01 and 15/02 of YEAR; parsing dates as UTC would move 01/01 into the previous year
   await expect(card(`Proventos em ${YEAR}`)).toContainText('R$ 136,00');
   await expect(card('Total em Proventos')).toContainText('R$ 1.360,00');
+
+  // Charts actually draw: monthly dividends (12 bars) and top payers (3 bars), plus the pie
+  await expect(card('Proventos por Mês').locator('.recharts-bar-rectangle')).toHaveCount(12);
+  await expect(card('Proventos por Ativo').locator('.recharts-bar-rectangle')).toHaveCount(3);
+  await expect(card('Distribuição do Portfólio').locator('.recharts-pie-sector')).not.toHaveCount(0);
 });
 
 test('IR taxes the consolidated month, carries the loss and saves the initial loss', async ({ page }) => {
@@ -98,6 +103,8 @@ test('IR taxes the consolidated month, carries the loss and saves the initial lo
 test('dividends are paginated and the total covers every filtered row', async ({ page }) => {
   await page.goto('/proventos');
   await expect(page.getByText('Mostrando 1 a 50 de 60 proventos')).toBeVisible();
+  // The monthly chart draws bars
+  await expect(page.locator('.recharts-bar-rectangle').first()).toBeVisible();
   await expect(page.locator('tbody tr')).toHaveCount(50);
   await expect(page.locator('tfoot')).toContainText('R$ 1.360,00');
 
