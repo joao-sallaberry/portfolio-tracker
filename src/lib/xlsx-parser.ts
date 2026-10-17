@@ -333,8 +333,6 @@ export function parseNegociacaoFile(file: File): Promise<ParseResult<TradeOperat
 }
 
 // CSV Simplificado: Ticker, Data, Preço un., Qtd, Tipo
-const CSV_SIMPLE_COLUMNS = ['Ticker', 'Data', 'Preço un.', 'Qtd', 'Tipo'];
-
 function detectFileFormat(file: File): 'xlsx' | 'csv' {
   const ext = file.name.split('.').pop()?.toLowerCase();
   return ext === 'csv' ? 'csv' : 'xlsx';

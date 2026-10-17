@@ -20,14 +20,15 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" }],
     },
   },
   {
     // shadcn/ui output is kept unmodified (its sidebar skeleton uses Math.random() on purpose)
-    files: ["src/components/ui/**"],
+    files: ["src/components/ui/**", "src/hooks/use-toast.ts"],
     rules: {
       "react-hooks/purity": "off",
+      "@typescript-eslint/no-unused-vars": "off",
     },
   },
 );
