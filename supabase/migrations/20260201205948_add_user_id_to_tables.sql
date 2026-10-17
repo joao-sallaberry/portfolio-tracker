@@ -21,8 +21,8 @@ CREATE INDEX idx_dividend_events_user_id ON public.dividend_events(user_id);
 CREATE INDEX idx_trade_operations_user_id ON public.trade_operations(user_id);
 
 -- 5. Drop old UNIQUE indexes
-DROP INDEX idx_dividend_events_dedupe;
-DROP INDEX idx_trade_operations_dedupe;
+DROP INDEX IF EXISTS idx_dividend_events_dedupe;
+DROP INDEX IF EXISTS idx_trade_operations_dedupe;
 
 -- 6. Create new UNIQUE indexes including user_id
 CREATE UNIQUE INDEX idx_dividend_events_dedupe ON public.dividend_events(
