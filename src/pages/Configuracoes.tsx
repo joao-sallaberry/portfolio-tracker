@@ -27,8 +27,8 @@ export default function Configuracoes() {
             const { error } = await supabase.auth.signOut();
             if (error) throw error;
             navigate('/auth');
-        } catch (error: any) {
-            toast.error('Erro ao sair: ' + error.message);
+        } catch (error) {
+            toast.error('Erro ao sair: ' + (error instanceof Error ? error.message : String(error)));
         }
     };
 

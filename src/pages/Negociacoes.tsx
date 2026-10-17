@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { TRADE_OPERATIONS_KEY, useTradeOperations } from '@/hooks/use-portfolio-data';
+import { TRADE_OPERATIONS_KEY, useTradeOperations, type TradeOperation } from '@/hooks/use-portfolio-data';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +24,13 @@ import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 50;
 
+// Number inputs hold strings while the user edits them
+type EditableTrade = Omit<TradeOperation, 'quantity' | 'price' | 'total_value'> & {
+  quantity: number | string;
+  price: number | string;
+  total_value: number | string;
+};
+
 export default function Negociacoes() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -33,7 +40,7 @@ export default function Negociacoes() {
   const [tickerFilter, setTickerFilter] = useState<string>('all');
   const [classFilter, setClassFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [editingTrade, setEditingTrade] = useState<any | null>(null);
+  const [editingTrade, setEditingTrade] = useState<EditableTrade | null>(null);
 
   const { data: tradesAsc, isLoading } = useTradeOperations();
   // Newest first for display
@@ -50,17 +57,22 @@ export default function Negociacoes() {
   });
 
   const updateTrade = useMutation({
-    mutationFn: async (updatedTrade: any) => {
+    mutationFn: async (updatedTrade: EditableTrade) => {
       const { id, trade_date, movement_type, movement_type_raw, ticker, institution, quantity, price, total_value } = updatedTrade;
+      const toNumber = (value: number | string, invalidMessage: string) => {
+        const n = typeof value === 'number' ? value : Number(value);
+        if (value === '' || !Number.isFinite(n)) throw new Error(invalidMessage);
+        return n;
+      };
       const payload = {
         trade_date,
         movement_type,
         movement_type_raw,
         ticker: normalizeTicker(ticker),
         institution,
-        quantity,
-        price,
-        total_value,
+        quantity: toNumber(quantity, 'Quantidade inválida.'),
+        price: toNumber(price, 'Preço inválido.'),
+        total_value: toNumber(total_value, 'Valor total inválido.'),
       };
       const { error } = await supabase.from('trade_operations').update(payload).eq('id', id);
       if (error) throw error;
@@ -73,10 +85,10 @@ export default function Negociacoes() {
       });
       setEditingTrade(null);
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar a negociação.",
+        description: `Não foi possível atualizar a negociação. ${error.message}`,
         variant: "destructive",
       });
     }
