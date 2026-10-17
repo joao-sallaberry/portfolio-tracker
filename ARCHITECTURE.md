@@ -305,7 +305,7 @@ Dates are parsed with `parseISODateLocal()`, so payments on the 1st of a month a
 
 ### 9.2 Negociações — [Negociacoes.tsx](src/pages/Negociacoes.tsx)
 
-- Paginated table (50 items/page).
+- Paginated table (50 items/page). Both browsers use the shared `PaginationControls` component.
 - Filters: start/end date (native date inputs), movement type, ticker, asset class.
 - Summary cards: Total Compras (`BUY` + `BONUS`), Total Vendas (`SELL` + `AMORTIZATION`), operation count.
 - **Edit dialog**: changes date, type (also updates `movement_type_raw`), ticker (normalized with `normalizeTicker()`), institution, quantity, price and total value through a `useMutation` that invalidates `['trade-operations']`.
@@ -315,7 +315,7 @@ Dates are parsed with `parseISODateLocal()`, so payments on the 1st of a month a
 
 - Filters: date presets (all, current/last month, current/last year, past 12 months, past 5 years — editing a date switches to "custom"), start/end date, event type, asset class, ticker.
 - Column sorting on every column (asset class sorts by `classifyAsset`).
-- Table footer with the total of the filtered rows.
+- Paginated table (50 items/page, reset on filter or sort change) with a footer showing the total of **all** filtered rows.
 - Summary cards: total, current year, event count, distinct event types.
 - **Stacked bar chart** of monthly dividends by asset class, with per-class toggles.
 
@@ -444,7 +444,6 @@ graph LR
 |---|---|
 | **Market prices** | No live or historical prices. Posição shows cost basis only. |
 | **Tax computation** | No distinction between day-trade (20%) and swing-trade (15%). The R$20k exemption applies to `Ação` sales only. Losses from previous months are tracked as the accumulated loss but not deducted from later taxable gains, so the tax due can be overstated. |
-| **Proventos pagination** | Proventos renders all filtered rows without pagination (Negociações paginates at 50). |
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **Form validation** | Forms use raw `useState` without a validation library. |
 | **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |

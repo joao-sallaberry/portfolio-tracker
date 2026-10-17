@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useDividendEvents } from '@/hooks/use-portfolio-data';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,9 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
 import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
 import { Wallet, CalendarIcon, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { PaginationControls } from '@/components/PaginationControls';
+
+const ITEMS_PER_PAGE = 50;
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -109,6 +112,17 @@ export default function Proventos() {
       return 0;
     });
   }, [filteredDividends, sortConfig]);
+
+  // Reset to page 1 when filters or sorting change
+  const [currentPage, setCurrentPage] = useState(1);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [startDate, endDate, eventType, assetClass, tickerFilter, sortConfig]);
+
+  const paginatedDividends = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return sortedDividends.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [sortedDividends, currentPage]);
 
   const totalDividends = filteredDividends.reduce((sum, d) => sum + Number(d.net_value), 0);
   const currentYear = new Date().getFullYear();
@@ -475,58 +489,67 @@ export default function Proventos() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('ticker')}>
-                      <div className="flex items-center gap-1">Ativo {sortConfig?.key === 'ticker' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('assetClass')}>
-                      <div className="flex items-center gap-1">Classe {sortConfig?.key === 'assetClass' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('payment_date')}>
-                      <div className="flex items-center gap-1">Data Pagamento {sortConfig?.key === 'payment_date' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('event_type')}>
-                      <div className="flex items-center gap-1">Tipo {sortConfig?.key === 'event_type' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('institution')}>
-                      <div className="flex items-center gap-1">Instituição {sortConfig?.key === 'institution' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('quantity')}>
-                      <div className="flex items-center justify-end gap-1">Quantidade {sortConfig?.key === 'quantity' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('unit_price')}>
-                      <div className="flex items-center justify-end gap-1">Preço Unit. {sortConfig?.key === 'unit_price' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('net_value')}>
-                      <div className="flex items-center justify-end gap-1">Valor Líquido {sortConfig?.key === 'net_value' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedDividends.map((dividend) => (
-                    <TableRow key={dividend.id}>
-                      <TableCell className="font-mono font-medium">{dividend.ticker}</TableCell>
-                      <TableCell>{classifyAsset(dividend.ticker)}</TableCell>
-                      <TableCell>{formatDateBR(dividend.payment_date)}</TableCell>
-                      <TableCell>{dividend.event_type}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{dividend.institution}</TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber(Number(dividend.quantity), 0)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrencyBRL(Number(dividend.unit_price))}</TableCell>
-                      <TableCell className="text-right font-mono font-medium text-primary">{formatCurrencyBRL(Number(dividend.net_value))}</TableCell>
+            <>
+              <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('ticker')}>
+                        <div className="flex items-center gap-1">Ativo {sortConfig?.key === 'ticker' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('assetClass')}>
+                        <div className="flex items-center gap-1">Classe {sortConfig?.key === 'assetClass' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('payment_date')}>
+                        <div className="flex items-center gap-1">Data Pagamento {sortConfig?.key === 'payment_date' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('event_type')}>
+                        <div className="flex items-center gap-1">Tipo {sortConfig?.key === 'event_type' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('institution')}>
+                        <div className="flex items-center gap-1">Instituição {sortConfig?.key === 'institution' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                      </TableHead>
+                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('quantity')}>
+                        <div className="flex items-center justify-end gap-1">Quantidade {sortConfig?.key === 'quantity' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                      </TableHead>
+                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('unit_price')}>
+                        <div className="flex items-center justify-end gap-1">Preço Unit. {sortConfig?.key === 'unit_price' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                      </TableHead>
+                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('net_value')}>
+                        <div className="flex items-center justify-end gap-1">Valor Líquido {sortConfig?.key === 'net_value' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-                <TableFooter>
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-right font-medium">Total</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary">{formatCurrencyBRL(totalDividends)}</TableCell>
-                  </TableRow>
-                </TableFooter>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedDividends.map((dividend) => (
+                      <TableRow key={dividend.id}>
+                        <TableCell className="font-mono font-medium">{dividend.ticker}</TableCell>
+                        <TableCell>{classifyAsset(dividend.ticker)}</TableCell>
+                        <TableCell>{formatDateBR(dividend.payment_date)}</TableCell>
+                        <TableCell>{dividend.event_type}</TableCell>
+                        <TableCell className="max-w-[150px] truncate">{dividend.institution}</TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(Number(dividend.quantity), 0)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrencyBRL(Number(dividend.unit_price))}</TableCell>
+                        <TableCell className="text-right font-mono font-medium text-primary">{formatCurrencyBRL(Number(dividend.net_value))}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-right font-medium">Total</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-primary">{formatCurrencyBRL(totalDividends)}</TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </div>
+              <PaginationControls
+                currentPage={currentPage}
+                pageSize={ITEMS_PER_PAGE}
+                totalItems={sortedDividends.length}
+                itemLabel="proventos"
+                onPageChange={setCurrentPage}
+              />
+            </>
           )}
         </CardContent>
       </Card>
