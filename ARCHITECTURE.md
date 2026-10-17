@@ -28,7 +28,7 @@ The entire UI is in **Brazilian Portuguese**.
 | **UI Framework** | React 18 (TypeScript, non-strict) | No SSR — pure SPA |
 | **Routing** | `react-router-dom` v6 | Client-side routing |
 | **Styling** | TailwindCSS 3 + `tailwindcss-animate` | Theme defined in [index.css](src/index.css) with light/dark mode CSS variables |
-| **Component Library** | shadcn/ui (Radix primitives) | Only the 23 components in use live in `src/components/ui/`; add others with the shadcn CLI |
+| **Component Library** | shadcn/ui (Radix primitives) | Only the 21 components in use live in `src/components/ui/`; add others with the shadcn CLI |
 | **Charts** | Recharts 2 | Bar charts, pie charts |
 | **Server / Data** | [Supabase](src/integrations/supabase/client.ts) (PostgreSQL + Auth) | Hosted project `vhihtrrnbxsxaqbrivam` |
 | **State / Caching** | TanStack React Query v5 | `useQuery` for reads, `useMutation` for edits |

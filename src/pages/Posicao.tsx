@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrencyBRL, formatNumber } from '@/lib/formatters';
-import { classifyAsset } from '@/lib/asset-classifier';
 import { Briefcase, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 import { calculatePositions, type Position } from '@/lib/portfolio-calculations';

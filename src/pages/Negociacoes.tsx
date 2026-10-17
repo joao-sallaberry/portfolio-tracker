@@ -7,8 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal, normalizeTicker } from '@/lib/formatters';
 import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
@@ -18,10 +16,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { TrendingUp, TrendingDown, CalendarIcon, X, Pencil } from 'lucide-react';
+import { TrendingUp, TrendingDown, X, Pencil } from 'lucide-react';
 import { PaginationControls } from '@/components/PaginationControls';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 50;

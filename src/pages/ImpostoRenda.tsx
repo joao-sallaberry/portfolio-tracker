@@ -141,7 +141,6 @@ export default function ImpostoRenda() {
     }
   };
 
-  const currentYear = new Date().getFullYear();
   const { data: trades, isLoading } = useTradeOperations();
 
   // Get unique tickers sorted alphabetically

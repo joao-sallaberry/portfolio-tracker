@@ -5,22 +5,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
 import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
-import { Wallet, CalendarIcon, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Wallet, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { PaginationControls } from '@/components/PaginationControls';
 
 const ITEMS_PER_PAGE = 50;
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis } from 'recharts';
 
 const ASSET_CLASSES: AssetClass[] = ['Ação', 'FII', 'ETF', 'FI-Infra', 'FIP', 'Outro'];
 
