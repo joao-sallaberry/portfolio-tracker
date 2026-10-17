@@ -28,12 +28,11 @@ The entire UI is in **Brazilian Portuguese**.
 | **UI Framework** | React 18 (TypeScript, non-strict) | No SSR — pure SPA |
 | **Routing** | `react-router-dom` v6 | Client-side routing |
 | **Styling** | TailwindCSS 3 + `tailwindcss-animate` | Theme defined in [index.css](src/index.css) with light/dark mode CSS variables |
-| **Component Library** | shadcn/ui (Radix primitives) | 49 UI components in `src/components/ui/` |
+| **Component Library** | shadcn/ui (Radix primitives) | Only the 23 components in use live in `src/components/ui/`; add others with the shadcn CLI |
 | **Charts** | Recharts 2 | Bar charts, pie charts |
 | **Server / Data** | [Supabase](src/integrations/supabase/client.ts) (PostgreSQL + Auth) | Hosted project `vhihtrrnbxsxaqbrivam` |
 | **State / Caching** | TanStack React Query v5 | `useQuery` for reads, `useMutation` for edits |
 | **File Parsing** | [SheetJS (xlsx)](src/lib/xlsx-parser.ts) | Client-side XLSX/CSV parsing |
-| **Form Validation** | Zod + React Hook Form | Installed but **not used** in current pages |
 | **Date Utilities** | `date-fns` with `ptBR` locale | Date filters use native `<input type="date">` |
 | **Icons** | `lucide-react` | SVG icon library |
 | **Fonts** | DM Sans (body) + JetBrains Mono (monospace) | Loaded from Google Fonts in [index.css](src/index.css) |
@@ -448,7 +447,7 @@ graph LR
 | **Proventos pagination** | Proventos renders all filtered rows without pagination (Negociações paginates at 50). |
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **SEO / Meta tags** | `index.html` has a generic description, and `og:image` still points to Lovable's default image. |
-| **Form validation** | `zod` and `react-hook-form` are unused. Forms use raw `useState`. |
+| **Form validation** | Forms use raw `useState` without a validation library. |
 | **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |
 | **Test coverage** | The cost basis, ticker normalization and IR sales logic are tested. Parsers, import deduplication and the IR "Por Ativo" tab are not. |
 | **CSV data freshness** | Asset classification CSVs are static snapshots. New listings require manual updates. |
