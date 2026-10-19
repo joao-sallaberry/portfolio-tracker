@@ -1,7 +1,6 @@
 # Portfolio Tracker — Architecture & Business Logic
 
 > **Repository:** `joao-sallaberry/portfolio-tracker`
-> **Last updated from source on:** 2026-10-17
 
 ---
 
@@ -46,39 +45,44 @@ The entire UI is in **Brazilian Portuguese**.
 portfolio-tracker/
 ├── index.html                  # HTML shell (SPA entry)
 ├── vite.config.ts              # Build config, `@` → `./src` alias
+├── vercel.json                 # SPA rewrite: every path serves index.html
 ├── playwright.config.ts        # E2E: builds, serves on :4173, pt-BR / São Paulo timezone
-├── e2e/                        # Playwright tests against a dedicated test account
+├── e2e/                        # Playwright tests (auth, portfolio) against a dedicated test account
+│   └── support/                # Test account login/reset, generated sample statements
 ├── tailwind.config.ts          # Tailwind theme extensions
 ├── .env.example                # Template for .env (Supabase URL + publishable key)
 ├── supabase/
 │   ├── config.toml             # Supabase CLI project id
 │   ├── schema_unified.sql      # Full current DDL + RLS for a fresh database (see §4.5)
-│   └── migrations/             # 9 incremental migration files
+│   └── migrations/             # 12 incremental migration files
 └── src/
-    ├── main.tsx                # React root mount
+    ├── main.tsx                # React root mount (imports auth-recovery first)
     ├── App.tsx                 # Auth guard + router + providers
     ├── index.css               # Design system tokens (CSS vars)
     ├── integrations/supabase/
     │   ├── client.ts           # Supabase client singleton
     │   └── types.ts            # Generated DB types
-    ├── lib/
-    │   ├── portfolio-calculations.ts       # Cost basis / average price (shared)
-    │   ├── portfolio-calculations.test.ts  # Vitest unit tests
+    ├── lib/                    # Business logic; each *.ts below has a *.test.ts next to it except where noted
+    │   ├── portfolio-calculations.ts  # Cost basis / average price (shared)
     │   ├── ir-calculations.ts  # IR sales, monthly tax, exemption, accumulated loss
-    │   ├── ir-calculations.test.ts
-    │   ├── formatters.ts       # BRL currency, dates, number parsing
-    │   ├── asset-classifier.ts # Ticker → asset class lookup
-    │   ├── fetch-all-pages.ts  # Pages through PostgREST's 1000-row limit (tested)
-    │   ├── xlsx-parser.ts      # XLSX/CSV → typed row arrays with per-row errors
+    │   ├── xlsx-parser.ts      # Proventos and negociações statements → typed rows with per-row errors
+    │   ├── b3-movimentacao.ts  # B3 movements statement → dividends + corporate events
+    │   ├── import-dedupe.ts    # Skips rows already stored (frequency map)
+    │   ├── formatters.ts       # BRL currency, dates, number parsing, ticker normalization
+    │   ├── fetch-all-pages.ts  # Pages through PostgREST's 1000-row limit
+    │   ├── asset-classifier.ts # Ticker → asset class lookup (no tests)
+    │   ├── auth-recovery.ts    # Catches password-recovery links before the router loads (no tests)
     │   └── utils.ts            # `cn()` helper (clsx + tailwind-merge)
     ├── data/                   # Known tickers per asset class (CSV)
-    ├── hooks/                  # use-portfolio-data (shared queries), use-mobile, use-toast
+    ├── hooks/                  # use-portfolio-data (shared queries), use-pagination, use-mobile, use-toast
     ├── components/
     │   ├── layout/             # AppLayout (sidebar + header), AppSidebar
-    │   ├── import/             # FileUploadCard, PreviewTable
-    │   └── ui/                 # shadcn/ui components (not modified)
+    │   ├── import/             # FileUploadCard, PreviewTable, MovimentacaoPreview
+    │   ├── PaginationControls.tsx
+    │   └── ui/                 # shadcn/ui components (not modified, except chart.tsx)
     └── pages/
-        ├── Auth.tsx            # Login / Sign-up
+        ├── Auth.tsx            # Login / Sign-up / forgot password
+        ├── ResetPassword.tsx   # New password after the reset email
         ├── Index.tsx           # Dashboard (Visão Geral)
         ├── Import.tsx          # Data import workflow
         ├── Negociacoes.tsx     # Trade history browser + editing
@@ -104,7 +108,7 @@ Three tables, all multi-tenant via `user_id`. The current schema is the result o
 | `trade_date` | DATE | |
 | `movement_type` | TEXT | `CHECK (IN ('BUY', 'SELL', 'SPLIT', 'REVERSE_SPLIT', 'BONUS', 'AMORTIZATION'))` |
 | `movement_type_raw` | TEXT | original label from the file |
-| `market` | TEXT | e.g. `"Bovespa"` |
+| `market` | TEXT | from the B3 statement (e.g. `"Mercado à Vista"`, `"Mercado Fracionário"`), `"Bovespa"` for the simplified CSV, or `"Movimentação B3"` / `"Proventos B3"` for rows derived from those statements |
 | `maturity` | TEXT (nullable) | |
 | `institution` | TEXT | broker name |
 | `ticker` | TEXT | e.g. `"PETR4"` |
@@ -123,7 +127,7 @@ Three tables, all multi-tenant via `user_id`. The current schema is the result o
 | `product_raw` | TEXT | original product name |
 | `ticker` | TEXT | extracted by `extractTicker()` |
 | `payment_date` | DATE | |
-| `event_type` | TEXT | e.g. `"Dividendos"`, `"JCP"`, `"Rendimento"` |
+| `event_type` | TEXT | as in the statement: `"Dividendo"`, `"Juros Sobre Capital Próprio"`, `"Rendimento"`, `"Reembolso"` |
 | `institution` | TEXT | |
 | `quantity` | NUMERIC | share quantity at payment |
 | `unit_price` | NUMERIC | dividend per share |
@@ -196,7 +200,7 @@ The import page ([Import.tsx](src/pages/Import.tsx)) is the **primary data inges
 
 ### 7.1 File Parsing
 
-Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes tickers with `normalizeTicker()`, so fractional-market tickers (`PETR4F`) are stored as the base ticker (`PETR4`). The fractional origin stays in `trade_operations.market` (`Mercado Fracionário`) for B3 XLSX imports. Every parser returns `ParseResult<T>` with `data[]`, `errors[]` (file-level, e.g. missing headers), `warnings[]` and `totalRows`. Each parsed row carries `hasErrors` and `errorMessages[]`.
+Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes tickers with `normalizeTicker()`, so fractional-market tickers (`PETR4F`) are stored as the base ticker (`PETR4`). The fractional origin stays in `trade_operations.market` (`Mercado Fracionário`) for B3 XLSX imports. Every parser returns `data[]` (or, for the movements statement, `dividends[]` and `trades[]`), `errors[]` (file-level, e.g. missing headers), `warnings[]` and `totalRows`. Each parsed row carries `hasErrors` and `errorMessages[]`.
 
 - **Proventos** (`parseProventosFile()`): B3 XLSX with columns `Produto`, `Pagamento`, `Tipo de Evento`, `Instituição`, `Quantidade`, `Preço unitário`, `Valor líquido`. A row is flagged when product, payment date or event type is missing/invalid. Capital returns (`Restituição de Capital`, `Amortização`) are not income: they come back in an extra `trades[]` as `AMORTIZATION` (`market = 'Proventos B3'`, with a warning) and are inserted into `trade_operations`, matching how the movements statement imports them, so the two dedupe against each other. The rows are parsed by `parseProventosRows()`, which the unit tests call directly.
 - **Negociações** (`parseNegociacaoFileAuto()` picks the format):
@@ -314,8 +318,8 @@ A `SELL` or `REVERSE_SPLIT` that takes the quantity to zero or below resets the 
 **KPIs (4 cards):**
 - **Total Investido**: total cost of the current positions (`calculatePositions()`, same as Posição)
 - **Total em Proventos**: `Σ dividend.net_value` (all time)
-- **Proventos no Ano**: same, current year
-- **Operações no Ano**: count of trades in the current year
+- **Proventos em {ano}**: same, current year
+- **Operações em {ano}**: count of trades in the current year
 
 **Charts:**
 1. **Proventos por Mês** — monthly dividend totals (last 12 months).
@@ -468,5 +472,5 @@ graph LR
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **Form validation** | Forms use raw `useState` without a validation library. |
 | **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |
-| **Test coverage** | Unit tests cover the cost basis, ticker normalization, pagination and IR sales logic. E2E tests (`npm run test:e2e`) cover import with deduplication, positions, dashboard totals, the IR page with the initial loss, and dividend pagination; they run against the hosted Supabase project (no local stack), using a dedicated test account. The IR "Por Ativo" tab and trade editing aren't covered. |
+| **Test coverage** | Unit tests cover the cost basis, IR sales logic, statement parsers, import deduplication, formatters and pagination. E2E tests (`npm run test:e2e`) cover login and password reset, the three imports with deduplication, positions, dashboard totals, the IR page with the initial loss, and dividend pagination; they run against the hosted Supabase project (no local stack), using a dedicated test account. The IR "Por Ativo" tab and trade editing aren't covered. |
 | **CSV data freshness** | Asset classification CSVs are static snapshots. New listings require manual updates. |
