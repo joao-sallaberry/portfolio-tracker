@@ -4,6 +4,8 @@ import { Wallet, TrendingUp, Trash2 } from 'lucide-react';
 import { FileUploadCard } from '@/components/import/FileUploadCard';
 import { PreviewTable } from '@/components/import/PreviewTable';
 import { parseProventosFile, parseNegociacaoFileAuto, type DividendEventRow, type TradeOperationRow, type ParseResult } from '@/lib/xlsx-parser';
+import { dividendKey, rowsToInsert, tradeKey } from '@/lib/import-dedupe';
+import { formatISODateLocal } from '@/lib/formatters';
 import { supabase } from '@/integrations/supabase/client';
 import { DIVIDEND_EVENTS_KEY, TRADE_OPERATIONS_KEY, fetchAllDividendEvents, fetchAllTradeOperations } from '@/hooks/use-portfolio-data';
 import { toast } from 'sonner';
@@ -22,276 +24,146 @@ import {
 
 type ImportState = 'idle' | 'parsing' | 'preview' | 'importing' | 'success' | 'error';
 
-interface ProventosState {
+interface FlowState<T> {
   state: ImportState;
-  parseResult: ParseResult<DividendEventRow> | null;
+  parseResult: T | null;
   message: string;
 }
 
-interface NegociacaoState {
-  state: ImportState;
-  parseResult: ParseResult<TradeOperationRow> | null;
-  message: string;
+const IDLE = { state: 'idle', parseResult: null, message: '' } as const;
+
+const errorMessage = (err: unknown) =>
+  err instanceof Error ? err.message :
+    (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
+      String(err);
+
+async function currentUserId() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Usuário não autenticado');
+  return user.id;
+}
+
+/** Inserts the dividend events that aren't stored yet; returns how many were inserted. */
+async function insertNewDividends(rows: DividendEventRow[], userId: string) {
+  const candidates = rows
+    .filter((row) => !row.hasErrors)
+    .map((row) => ({
+      product_raw: row.productRaw,
+      ticker: row.ticker,
+      payment_date: row.paymentDate ? formatISODateLocal(row.paymentDate) : '',
+      event_type: row.eventType,
+      institution: row.institution,
+      quantity: row.quantity,
+      unit_price: row.unitPrice,
+      net_value: row.netValue,
+      user_id: userId,
+    }));
+  // All stored rows, paginated (a plain select stops at 1000 rows)
+  const newRows = rowsToInsert(await fetchAllDividendEvents(), candidates, dividendKey, dividendKey);
+  if (newRows.length) {
+    const { error } = await supabase.from('dividend_events').insert(newRows);
+    if (error) throw error;
+  }
+  return { inserted: newRows.length, total: candidates.length };
+}
+
+/** Inserts the trades that aren't stored yet; returns how many were inserted. */
+async function insertNewTrades(rows: TradeOperationRow[], userId: string) {
+  const candidates = rows
+    .filter((row) => !row.hasErrors)
+    .map((row) => ({
+      trade_date: row.tradeDate ? formatISODateLocal(row.tradeDate) : '',
+      movement_type: row.movementType,
+      movement_type_raw: row.movementTypeRaw,
+      market: row.market,
+      maturity: row.maturity,
+      institution: row.institution,
+      ticker: row.ticker,
+      quantity: row.quantity,
+      price: row.price,
+      total_value: row.totalValue,
+      user_id: userId,
+    }));
+  const newRows = rowsToInsert(await fetchAllTradeOperations(), candidates, tradeKey, tradeKey);
+  if (newRows.length) {
+    const { error } = await supabase.from('trade_operations').insert(newRows);
+    if (error) throw error;
+  }
+  return { inserted: newRows.length, total: candidates.length };
 }
 
 export default function Import() {
   const queryClient = useQueryClient();
-  const [proventos, setProventos] = useState<ProventosState>({
-    state: 'idle',
-    parseResult: null,
-    message: '',
-  });
+  const [proventos, setProventos] = useState<FlowState<ParseResult<DividendEventRow>>>(IDLE);
+  const [negociacao, setNegociacao] = useState<FlowState<ParseResult<TradeOperationRow>>>(IDLE);
 
-  const [negociacao, setNegociacao] = useState<NegociacaoState>({
-    state: 'idle',
-    parseResult: null,
-    message: '',
-  });
-
-  const handleProventosFile = async (file: File) => {
-    setProventos({ state: 'parsing', parseResult: null, message: '' });
-
+  const parseInto = async <T extends { errors: string[] }>(
+    file: File,
+    parse: (file: File) => Promise<T>,
+    setFlow: (flow: FlowState<T>) => void,
+  ) => {
+    setFlow({ state: 'parsing', parseResult: null, message: '' });
     try {
-      const result = await parseProventosFile(file);
-
-      if (result.errors.length > 0) {
-        setProventos({
-          state: 'preview',
-          parseResult: result,
-          message: result.errors[0],
-        });
-      } else {
-        setProventos({
-          state: 'preview',
-          parseResult: result,
-          message: '',
-        });
-      }
+      const result = await parse(file);
+      setFlow({ state: 'preview', parseResult: result, message: result.errors[0] ?? '' });
     } catch (err) {
-      setProventos({
-        state: 'error',
-        parseResult: null,
-        message: `Erro ao processar arquivo: ${err}`,
-      });
+      setFlow({ state: 'error', parseResult: null, message: `Erro ao processar arquivo: ${err}` });
     }
   };
 
-  const handleNegociacaoFile = async (file: File) => {
-    setNegociacao({ state: 'parsing', parseResult: null, message: '' });
-
-    try {
-      const result = await parseNegociacaoFileAuto(file);
-
-      if (result.errors.length > 0) {
-        setNegociacao({
-          state: 'preview',
-          parseResult: result,
-          message: result.errors[0],
-        });
-      } else {
-        setNegociacao({
-          state: 'preview',
-          parseResult: result,
-          message: '',
-        });
-      }
-    } catch (err) {
-      setNegociacao({
-        state: 'error',
-        parseResult: null,
-        message: `Erro ao processar arquivo: ${err}`,
-      });
-    }
-  };
+  const handleProventosFile = (file: File) => parseInto(file, parseProventosFile, setProventos);
+  const handleNegociacaoFile = (file: File) => parseInto(file, parseNegociacaoFileAuto, setNegociacao);
 
   const confirmProventosImport = async () => {
     if (!proventos.parseResult) return;
-
-    setProventos(prev => ({ ...prev, state: 'importing' }));
+    setProventos((prev) => ({ ...prev, state: 'importing' }));
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
-
-      // 1. Fetch all existing rows for comparison (a plain select stops at 1000 rows)
-      const existingEvents = await fetchAllDividendEvents();
-
-      const existingMap = new Map<string, number>();
-      existingEvents.forEach(ev => {
-        const key = `${ev.ticker}-${ev.payment_date}-${ev.event_type}-${ev.quantity}-${ev.net_value}`;
-        existingMap.set(key, (existingMap.get(key) || 0) + 1);
-      });
-
-      const rowsToInsert = [];
-      const incomingMap = new Map<string, number>(); // Count usage within the file itself
-
-      // Prepare rows for inserting
-      const candidates = proventos.parseResult.data
-        .filter(row => !row.hasErrors)
-        .map(row => ({
-          product_raw: row.productRaw,
-          ticker: row.ticker,
-          payment_date: row.paymentDate ? row.paymentDate.toISOString().split('T')[0] : '',
-          event_type: row.eventType,
-          institution: row.institution,
-          quantity: row.quantity,
-          unit_price: row.unitPrice,
-          net_value: row.netValue,
-          user_id: user.id,
-        }));
-
-      for (const row of candidates) {
-        const key = `${row.ticker}-${row.payment_date}-${row.event_type}-${row.quantity}-${row.net_value}`;
-
-        const existingCount = existingMap.get(key) || 0;
-        const usedCount = incomingMap.get(key) || 0;
-
-        if (usedCount < existingCount) {
-          // We found one match in DB that "absorbs" this file row
-          // "Mark" it as matched by incrementing our usage count
-          incomingMap.set(key, usedCount + 1);
-          // Skip insertion
-        } else {
-          // We have more in file than in DB (or none in DB) -> Insert this one
-          rowsToInsert.push(row);
-          // Also increment usage in case there are 3 in file and 1 in DB
-          incomingMap.set(key, usedCount + 1);
-        }
-      }
-
-      if (rowsToInsert.length === 0) {
-        setProventos({
-          state: 'success',
-          parseResult: null,
-          message: `Todos os ${candidates.length} proventos já estavam cadastrados.`,
-        });
-        toast.info("Nenhum dado novo para importar.");
+      const { inserted, total } = await insertNewDividends(proventos.parseResult.data, await currentUserId());
+      if (inserted === 0) {
+        setProventos({ state: 'success', parseResult: null, message: `Todos os ${total} proventos já estavam cadastrados.` });
+        toast.info('Nenhum dado novo para importar.');
         return;
       }
-
-      const { error } = await supabase
-        .from('dividend_events')
-        .insert(rowsToInsert);
-
-      if (error) throw error;
       queryClient.invalidateQueries({ queryKey: DIVIDEND_EVENTS_KEY });
-
       setProventos({
         state: 'success',
         parseResult: null,
-        message: `${rowsToInsert.length} novos proventos importados (${candidates.length - rowsToInsert.length} duplicados ignorados).`,
+        message: `${inserted} novos proventos importados (${total - inserted} duplicados ignorados).`,
       });
-      toast.success(`${rowsToInsert.length} importados com sucesso!`);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message :
-        (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
-          String(err);
-      setProventos(prev => ({
-        ...prev,
-        state: 'error',
-        message: `Erro ao importar: ${errorMessage}`,
-      }));
+      toast.success(`${inserted} importados com sucesso!`);
+    } catch (err) {
+      setProventos((prev) => ({ ...prev, state: 'error', message: `Erro ao importar: ${errorMessage(err)}` }));
       toast.error('Erro ao importar proventos');
     }
   };
 
   const confirmNegociacaoImport = async () => {
     if (!negociacao.parseResult) return;
-
-    setNegociacao(prev => ({ ...prev, state: 'importing' }));
+    setNegociacao((prev) => ({ ...prev, state: 'importing' }));
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
-
-      // 1. Fetch all existing rows for comparison (a plain select stops at 1000 rows)
-      const existingTrades = await fetchAllTradeOperations();
-
-      const existingMap = new Map<string, number>();
-      existingTrades.forEach(tr => {
-        // Key excluding ID, created_at, etc
-        const key = `${tr.trade_date}-${tr.movement_type}-${tr.ticker}-${tr.quantity}-${tr.total_value}`;
-        existingMap.set(key, (existingMap.get(key) || 0) + 1);
-      });
-
-      const rowsToInsert = [];
-      const incomingMap = new Map<string, number>();
-
-      const candidates = negociacao.parseResult.data
-        .filter(row => !row.hasErrors)
-        .map(row => ({
-          trade_date: row.tradeDate ? row.tradeDate.toISOString().split('T')[0] : '',
-          movement_type: row.movementType,
-          movement_type_raw: row.movementTypeRaw,
-          market: row.market,
-          maturity: row.maturity,
-          institution: row.institution,
-          ticker: row.ticker,
-          quantity: row.quantity,
-          price: row.price,
-          total_value: row.totalValue,
-          user_id: user.id,
-        }));
-
-      for (const row of candidates) {
-        const key = `${row.trade_date}-${row.movement_type}-${row.ticker}-${row.quantity}-${row.total_value}`;
-
-        const existingCount = existingMap.get(key) || 0;
-        const usedCount = incomingMap.get(key) || 0;
-
-        if (usedCount < existingCount) {
-          // Absorbed by existing record
-          incomingMap.set(key, usedCount + 1);
-        } else {
-          // New record
-          rowsToInsert.push(row);
-          incomingMap.set(key, usedCount + 1);
-        }
-      }
-
-      if (rowsToInsert.length === 0) {
-        setNegociacao({
-          state: 'success',
-          parseResult: null,
-          message: `Todas as ${candidates.length} negociações já estavam cadastradas.`,
-        });
-        toast.info("Nenhuma negociação nova.");
+      const { inserted, total } = await insertNewTrades(negociacao.parseResult.data, await currentUserId());
+      if (inserted === 0) {
+        setNegociacao({ state: 'success', parseResult: null, message: `Todas as ${total} negociações já estavam cadastradas.` });
+        toast.info('Nenhuma negociação nova.');
         return;
       }
-
-      const { error } = await supabase
-        .from('trade_operations')
-        .insert(rowsToInsert);
-
-      if (error) throw error;
       queryClient.invalidateQueries({ queryKey: TRADE_OPERATIONS_KEY });
-
       setNegociacao({
         state: 'success',
         parseResult: null,
-        message: `${rowsToInsert.length} novas negociações importadas (${candidates.length - rowsToInsert.length} duplicadas ignoradas).`,
+        message: `${inserted} novas negociações importadas (${total - inserted} duplicadas ignoradas).`,
       });
-      toast.success(`${rowsToInsert.length} importadas com sucesso!`);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message :
-        (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
-          String(err);
-      setNegociacao(prev => ({
-        ...prev,
-        state: 'error',
-        message: `Erro ao importar: ${errorMessage}`,
-      }));
+      toast.success(`${inserted} importadas com sucesso!`);
+    } catch (err) {
+      setNegociacao((prev) => ({ ...prev, state: 'error', message: `Erro ao importar: ${errorMessage(err)}` }));
       toast.error('Erro ao importar negociações');
     }
   };
 
-  const cancelProventosPreview = () => {
-    setProventos({ state: 'idle', parseResult: null, message: '' });
-  };
-
-  const cancelNegociacaoPreview = () => {
-    setNegociacao({ state: 'idle', parseResult: null, message: '' });
-  };
+  const cancelProventosPreview = () => setProventos(IDLE);
+  const cancelNegociacaoPreview = () => setNegociacao(IDLE);
 
   const clearProventosHistory = async () => {
     try {

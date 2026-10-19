@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatCurrencyCompactBRL, normalizeTicker } from './formatters';
+import { formatCurrencyCompactBRL, formatISODateLocal, normalizeTicker } from './formatters';
 
 describe('normalizeTicker', () => {
   it('strips the fractional-market F suffix', () => {
@@ -40,5 +40,12 @@ describe('formatCurrencyCompactBRL', () => {
     expect(plain(1000)).toBe('R$ 1 mil');
     expect(plain(1360)).toBe('R$ 1,4 mil');
     expect(plain(2_500_000)).toBe('R$ 2,5 mi');
+  });
+});
+
+describe('formatISODateLocal', () => {
+  it('formats the local calendar date, including late at night', () => {
+    expect(formatISODateLocal(new Date(2026, 0, 1))).toBe('2026-01-01');
+    expect(formatISODateLocal(new Date(2026, 11, 31, 23, 59))).toBe('2026-12-31');
   });
 });
