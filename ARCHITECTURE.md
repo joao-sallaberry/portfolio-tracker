@@ -20,22 +20,20 @@ The entire UI is in **Brazilian Portuguese**.
 
 ## 2. Tech Stack
 
+Exact versions are in `package.json`; the table notes only what affects how the code is written.
+
 | Layer | Technology | Notes |
 |---|---|---|
-| **Build** | [Vite 8](vite.config.ts) + `@vitejs/plugin-react` | Dev server on port `8080`, `@` → `./src` alias |
-| **Tests** | Vitest 5 + Playwright | Unit tests (`npm run test`) and end-to-end tests against the production build (`npm run test:e2e`) |
-| **UI Framework** | React 19 (TypeScript, non-strict) | No SSR — pure SPA |
-| **Routing** | `react-router` v8 | Client-side routing (declarative `BrowserRouter` mode) |
-| **Styling** | TailwindCSS 3 + `tailwindcss-animate` (Tailwind 4 not adopted yet) | Theme defined in [index.css](src/index.css) with light/dark mode CSS variables |
-| **Component Library** | shadcn/ui (Radix primitives) | Only the 21 components in use live in `src/components/ui/`; add others with the shadcn CLI |
-| **Charts** | Recharts 3 | Bar charts, pie charts |
-| **Hosting** | Vercel (GitHub integration, deploys `main`) | `vercel.json` SPA rewrite; build fails without the `VITE_SUPABASE_*` env vars |
-| **Server / Data** | [Supabase](src/integrations/supabase/client.ts) (PostgreSQL + Auth) | Hosted project `vhihtrrnbxsxaqbrivam` |
-| **State / Caching** | TanStack React Query v5 | `useQuery` for reads, `useMutation` for edits |
-| **File Parsing** | [SheetJS (xlsx)](src/lib/xlsx-parser.ts) | Client-side XLSX/CSV parsing |
-| **Date Utilities** | `date-fns` with `ptBR` locale | Date filters use native `<input type="date">` |
-| **Icons** | `lucide-react` | SVG icon library |
-| **Fonts** | DM Sans (body) + JetBrains Mono (monospace) | Loaded from Google Fonts in [index.css](src/index.css) |
+| **Build** | [Vite](vite.config.ts) + `@vitejs/plugin-react` | Dev server on port `8080`, `@` → `./src` alias; the build fails without the `VITE_SUPABASE_*` env vars |
+| **UI** | React 19, TypeScript (non-strict) | Pure SPA, no SSR; pages are lazy-loaded (§6) |
+| **Routing** | `react-router` | Declarative `BrowserRouter` mode |
+| **Styling** | Tailwind CSS **3** + `tailwindcss-animate` | Theme in [index.css](src/index.css) (§11). Tailwind 4 not adopted, so shadcn output written for it must be mapped back (see `chart.tsx`) |
+| **Components** | shadcn/ui (Radix) | Only the components in use live in `src/components/ui/`; add others with the shadcn CLI |
+| **Charts** | Recharts 3 | Through shadcn's `chart.tsx` |
+| **Data** | [Supabase](src/integrations/supabase/client.ts) (Postgres + Auth) + TanStack Query | Hosted project `vhihtrrnbxsxaqbrivam`; no local stack |
+| **File parsing** | [SheetJS](src/lib/xlsx-parser.ts) | Installed from `cdn.sheetjs.com` (the npm registry copy is outdated) |
+| **Tests** | Vitest + Playwright | Unit tests next to the modules in `src/lib/`, E2E in `e2e/` against the hosted project (§14) |
+| **Hosting** | Vercel | Deploys every push to `main`; `vercel.json` rewrites all paths to `index.html` |
 
 ---
 
@@ -115,7 +113,7 @@ Three tables, all multi-tenant via `user_id`. The current schema is the result o
 | `quantity` | NUMERIC | |
 | `price` | NUMERIC | per-unit price |
 | `total_value` | NUMERIC | `quantity × price` |
-| `exclude_from_ir` | BOOLEAN | default `false` — see §9.5 |
+| `exclude_from_ir` | BOOLEAN | default `false` — see §9.6 |
 | `created_at` | TIMESTAMPTZ | auto `now()` |
 
 ### 4.2 `dividend_events`
@@ -144,7 +142,7 @@ Three tables, all multi-tenant via `user_id`. The current schema is the result o
 | `amount` | NUMERIC | `CHECK (amount <= 0)` |
 | `updated_at` | TIMESTAMPTZ | auto `now()` |
 
-Initial accumulated loss entered on the IR page (§9.5), one row per user, tax group and year. The page upserts on blur.
+Initial accumulated loss entered on the IR page (§9.6), one row per user, tax group and year. The page upserts on blur.
 
 ### 4.4 Indexes and Row-Level Security
 
@@ -200,7 +198,7 @@ The import page ([Import.tsx](src/pages/Import.tsx)) is the **primary data inges
 
 ### 7.1 File Parsing
 
-Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes tickers with `normalizeTicker()`, so fractional-market tickers (`PETR4F`) are stored as the base ticker (`PETR4`). The fractional origin stays in `trade_operations.market` (`Mercado Fracionário`) for B3 XLSX imports. Every parser returns `data[]` (or, for the movements statement, `dividends[]` and `trades[]`), `errors[]` (file-level, e.g. missing headers), `warnings[]` and `totalRows`. Each parsed row carries `hasErrors` and `errorMessages[]`.
+Proventos and negociações are parsed in [xlsx-parser.ts](src/lib/xlsx-parser.ts), movimentações in [b3-movimentacao.ts](src/lib/b3-movimentacao.ts). Every parser normalizes tickers with `normalizeTicker()`, so fractional-market tickers (`PETR4F`) are stored as the base ticker (`PETR4`). The fractional origin stays in `trade_operations.market` (`Mercado Fracionário`) for B3 XLSX imports. Every parser returns `data[]` (or, for the movements statement, `dividends[]` and `trades[]`), `errors[]` (file-level, e.g. missing headers), `warnings[]` and `totalRows`. Each parsed row carries `hasErrors` and `errorMessages[]`.
 
 - **Proventos** (`parseProventosFile()`): B3 XLSX with columns `Produto`, `Pagamento`, `Tipo de Evento`, `Instituição`, `Quantidade`, `Preço unitário`, `Valor líquido`. A row is flagged when product, payment date or event type is missing/invalid. Capital returns (`Restituição de Capital`, `Amortização`) are not income: they come back in an extra `trades[]` as `AMORTIZATION` (`market = 'Proventos B3'`, with a warning) and are inserted into `trade_operations`, matching how the movements statement imports them, so the two dedupe against each other. The rows are parsed by `parseProventosRows()`, which the unit tests call directly.
 - **Negociações** (`parseNegociacaoFileAuto()` picks the format):
@@ -209,7 +207,7 @@ Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes
 
   A row is flagged when date, movement type or ticker is missing/invalid, or when the movement type is unknown.
 
-#### Movement Type Normalisation
+#### Negociações: movement type normalisation
 
 [normalizeMovementType()](src/lib/formatters.ts) maps the raw label:
 
@@ -223,13 +221,9 @@ Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes
 | `Amortização`, `amortization` | `AMORTIZATION` |
 | anything else | `UNKNOWN` (row flagged as error) |
 
-### 7.2 Preview & Confirmation
-
-[PreviewTable](src/components/import/PreviewTable.tsx) shows the first 20 rows (rows with errors highlighted, messages in the tooltip), the first 10 warnings and the valid-row count. File-level errors disable **"Confirmar importação"**. Rows with `hasErrors` are skipped on import.
-
 #### Movimentações (B3 movements statement)
 
-[b3-movimentacao.ts](src/lib/b3-movimentacao.ts) parses the B3 "Extrato de Movimentação" (columns `Entrada/Saída`, `Data`, `Movimentação`, `Produto`, `Instituição`, `Quantidade`, `Preço unitário`, `Valor da Operação`) and classifies each row (credits only):
+`parseMovimentacaoFile()` in [b3-movimentacao.ts](src/lib/b3-movimentacao.ts) reads the B3 "Extrato de Movimentação" (columns `Entrada/Saída`, `Data`, `Movimentação`, `Produto`, `Instituição`, `Quantidade`, `Preço unitário`, `Valor da Operação`) and classifies each row (credits only):
 
 | Movimentação | Imported as |
 |---|---|
@@ -243,6 +237,12 @@ Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes
 | anything else | not imported, warning |
 
 Buys and sells are **not** taken from this statement: "Transferência - Liquidação" also records shares going to and returning from lending, at reference prices. They come from the trades statement. Trades from this statement get `market = 'Movimentação B3'`.
+
+### 7.2 Preview & Confirmation
+
+[PreviewTable](src/components/import/PreviewTable.tsx) shows the first 20 rows (rows with errors highlighted, messages in the tooltip), the first 10 warnings and the valid-row count. File-level errors disable **"Confirmar importação"**. Rows with `hasErrors` are skipped on import.
+
+The movements statement has its own [MovimentacaoPreview](src/components/import/MovimentacaoPreview.tsx): counts per outcome, every warning (scrollable, since each one asks for a manual check), the ignored rows grouped by type, and separate tables for events and dividends. It reuses `PreviewRows` from PreviewTable.
 
 ### 7.3 Insertion
 
@@ -287,7 +287,7 @@ Five CSV files under `src/data/` are imported at build time (Vite `?raw`) and pa
 
 ## 9. Business Logic
 
-### 9.0 Cost Basis (shared)
+### 9.1 Cost Basis (shared)
 
 All average-price calculations go through [portfolio-calculations.ts](src/lib/portfolio-calculations.ts) (weighted average cost method):
 
@@ -311,7 +311,7 @@ Rules per movement type:
 
 A `SELL` or `REVERSE_SPLIT` that takes the quantity to zero or below resets the position to empty, so an oversold quantity is not carried into later buys. Unknown types leave the basis untouched. These rules are covered by `portfolio-calculations.test.ts`.
 
-### 9.1 Dashboard — [Index.tsx](src/pages/Index.tsx)
+### 9.2 Dashboard — [Index.tsx](src/pages/Index.tsx)
 
 **Empty state:** a welcome screen with a CTA to `/importar`.
 
@@ -328,7 +328,7 @@ A `SELL` or `REVERSE_SPLIT` that takes the quantity to zero or below resets the 
 
 Dates are parsed with `parseISODateLocal()`, so payments on the 1st of a month are not shifted into the previous month by the UTC offset.
 
-### 9.2 Negociações — [Negociacoes.tsx](src/pages/Negociacoes.tsx)
+### 9.3 Negociações — [Negociacoes.tsx](src/pages/Negociacoes.tsx)
 
 - Paginated table (50 items/page). Both browsers use the shared `usePagination` hook (back to page 1 when filters or sorting change) and `PaginationControls` component.
 - Filters: start/end date (native date inputs), movement type, ticker, asset class.
@@ -336,7 +336,7 @@ Dates are parsed with `parseISODateLocal()`, so payments on the 1st of a month a
 - **Edit dialog**: changes date, type (also updates `movement_type_raw`), ticker (normalized with `normalizeTicker()`), institution, quantity, price and total value through a `useMutation` that invalidates `['trade-operations']`.
 - **"Excluir do IR" switch** on `SELL` rows toggles `exclude_from_ir`.
 
-### 9.3 Proventos — [Proventos.tsx](src/pages/Proventos.tsx)
+### 9.4 Proventos — [Proventos.tsx](src/pages/Proventos.tsx)
 
 - Filters: date presets (all, current/last month, current/last year, past 12 months, past 5 years — editing a date switches to "custom"), start/end date, event type, asset class, ticker.
 - Column sorting on every column (asset class sorts by `classifyAsset`).
@@ -344,15 +344,15 @@ Dates are parsed with `parseISODateLocal()`, so payments on the 1st of a month a
 - Summary cards: total, current year, event count, distinct event types.
 - **Stacked bar chart** of monthly dividends by asset class, with per-class toggles.
 
-### 9.4 Posição — [Posicao.tsx](src/pages/Posicao.tsx)
+### 9.5 Posição — [Posicao.tsx](src/pages/Posicao.tsx)
 
-Uses `calculatePositions()` (§9.0). Positions are grouped by asset class (Ações, FIIs, ETFs, FI-Infra, FIP, Outros), each in its own card with quantity, average price, total value and portfolio weight. Columns are sortable (default: total value descending).
+Uses `calculatePositions()` (§9.1). Positions are grouped by asset class (Ações, FIIs, ETFs, FI-Infra, FIP, Outros), each in its own card with quantity, average price, total value and portfolio weight. Columns are sortable (default: total value descending).
 
 > **Limitation:** this is a **cost-basis** position. There is no market price data.
 
-### 9.5 Imposto de Renda — [ImpostoRenda.tsx](src/pages/ImpostoRenda.tsx)
+### 9.6 Imposto de Renda — [ImpostoRenda.tsx](src/pages/ImpostoRenda.tsx)
 
-Two tabs, both built on the shared cost basis (§9.0). The Tab 1 logic lives in [ir-calculations.ts](src/lib/ir-calculations.ts) (`calculateSalesByTaxGroup`, `calculateGrandTotals`, `TAX_GROUPS`) and is covered by `ir-calculations.test.ts`. The page only fetches data and renders.
+Two tabs, both built on the shared cost basis (§9.1). The Tab 1 logic lives in [ir-calculations.ts](src/lib/ir-calculations.ts) (`calculateSalesByTaxGroup`, `calculateGrandTotals`, `TAX_GROUPS`) and is covered by `ir-calculations.test.ts`. The page only fetches data and renders.
 
 #### Tab 1: "Vendas por Classe" (Sales by Tax Group)
 
@@ -379,7 +379,7 @@ Summary cards: Total Vendas, Lucro/Prejuízo, Imposto Devido, and Lucro Isento (
 - **Year-end snapshots**: position (quantity, total cost, average price) at Dec 31 of the selected and previous year — useful for the annual declaration.
 - **Full trade history** with running quantity and running average price after each trade.
 
-### 9.6 Configurações — [Configuracoes.tsx](src/pages/Configuracoes.tsx)
+### 9.7 Configurações — [Configuracoes.tsx](src/pages/Configuracoes.tsx)
 
 Shows the authenticated user's email and a logout button (`supabase.auth.signOut()`, redirect to `/auth`).
 
@@ -387,47 +387,20 @@ Shows the authenticated user's email and a logout button (`supabase.auth.signOut
 
 ## 10. Formatting Utilities
 
-All in [formatters.ts](src/lib/formatters.ts):
+[formatters.ts](src/lib/formatters.ts) holds the BRL/date formatting (`formatCurrencyBRL`, `formatDateBR`, …) and the parsing of Brazilian-format input (`parseNumberBR`, `parseDateBR`, `extractTicker`, …). The ones with a rule to follow:
 
-| Function | Purpose |
+| Function | Rule |
 |---|---|
-| `formatCurrencyBRL(n)` | `R$ 1.234,56` via `Intl.NumberFormat` |
-| `formatDateBR(d)` | `DD/MM/YYYY` |
-| `formatNumber(n, decimals)` | Locale-formatted number |
-| `formatCompactNumber(n)` | `1.2K`, `3.4M` |
-| `parseISODateLocal(s)` | Parses `YYYY-MM-DD` without timezone offset |
-| `parseDateBR(s)` | Parses `DD/MM/YYYY` |
-| `parseDateBRShort(s)` | Parses `DD/MM/YY` |
-| `parseNumberBR(s)` | Parses `1.234,56` → `1234.56` |
-| `parseCurrencyBR(s)` | Strips `R$` prefix, then `parseNumberBR()` |
-| `extractTicker(s)` | Extracts ticker from `"PETR4 - PETROBRAS S.A."` |
-| `normalizeTicker(s)` | Trims, uppercases and strips the fractional-market `F` suffix (`PETR4F` → `PETR4`) |
-| `normalizeMovementType(s)` | Maps Portuguese movement labels to the enum (§7.1) |
+| `parseISODateLocal(s)` | Use for every `YYYY-MM-DD` from the database. `new Date(s)` reads it as UTC midnight, which is the previous day in Brazil |
+| `formatISODateLocal(d)` | Use when writing dates; `toISOString()` has the same UTC problem in reverse |
+| `normalizeTicker(s)` | Apply wherever a ticker enters the database: uppercases and strips the fractional-market `F` (`PETR4F` → `PETR4`) |
+| `normalizeMovementType(s)` | Broker labels → movement enum (§7.1) |
 
 ---
 
 ## 11. Design System
 
-### 11.1 Theme
-
-Defined through CSS custom properties in [index.css](src/index.css), using an **Emerald Financial** palette:
-
-- **Primary:** HSL `160 84% 39%` (emerald) — positive values and brand accents.
-- **Destructive:** HSL `0 84% 60%` (red) — sells and errors.
-- **Success:** HSL `142 76% 36%` (green) — buys.
-- **Warning:** HSL `38 92% 50%` (amber).
-- **Sidebar:** dark navy (`215 28% 17%`) with emerald accents.
-
-Dark-mode variables are defined, but there is no toggle and no `ThemeProvider` is mounted (`next-themes` is installed but unused).
-
-### 11.2 Custom Utility Classes
-
-| Class | Effect |
-|---|---|
-| `.gradient-primary` | Emerald gradient background |
-| `.gradient-card` | Subtle card gradient |
-| `.shadow-glow` | Emerald glow box-shadow |
-| `.glass` | Backdrop-blur glassmorphism |
+Colors are CSS custom properties in [index.css](src/index.css) (an emerald palette: primary emerald, `success` green for buys, `destructive` red for sells and errors, `warning` amber, dark navy sidebar), exposed to Tailwind in `tailwind.config.ts`. It also defines a few utilities (`.gradient-primary`, `.gradient-card`, `.shadow-glow`, `.glass`). Dark-mode variables exist, but there is no toggle and no `ThemeProvider` is mounted.
 
 ---
 
@@ -435,16 +408,16 @@ Dark-mode variables are defined, but there is no toggle and no `ThemeProvider` i
 
 ```mermaid
 graph LR
-    A[XLSX / CSV File] -->|Browser FileReader| B[xlsx-parser.ts]
-    B -->|ParseResult<T>| C[PreviewTable]
-    C -->|User confirms| D[Import.tsx]
-    D -->|Deduplicate + Insert| E[(Supabase PostgreSQL)]
-    E -->|useQuery + paginated fetch| F[Pages]
-    F -->|useMutation edits| E
-    F -->|cost basis| P[portfolio-calculations.ts]
-    F -->|classifyAsset| G[asset-classifier.ts]
-    F -->|formatCurrencyBRL etc.| H[formatters.ts]
-    F -->|Recharts| I[Charts]
+    A[Statement XLSX / CSV] --> B[xlsx-parser.ts / b3-movimentacao.ts]
+    B -->|rows + warnings| C[PreviewTable / MovimentacaoPreview]
+    C -->|user confirms| D[Import.tsx]
+    D -->|rowsToInsert| DD[import-dedupe.ts]
+    DD -->|insert| E[(Supabase Postgres)]
+    E -->|use-portfolio-data, all rows| F[Pages]
+    F -->|edits, invalidate cache| E
+    F --> P[portfolio-calculations.ts]
+    P --> IR[ir-calculations.ts]
+    F --> G[asset-classifier.ts]
 ```
 
 **Key pattern:** pages read data through [use-portfolio-data.ts](src/hooks/use-portfolio-data.ts): `useTradeOperations()` and `useDividendEvents()` fetch the user's full dataset (oldest first) under the shared query keys `TRADE_OPERATIONS_KEY` / `DIVIDEND_EVENTS_KEY`, so every page uses the same cache. They page through PostgREST's 1000-row limit with `fetchAllPages()`, ordering by date **and `id`** so rows don't repeat or go missing between pages. Pages filter and aggregate in memory; mutations and imports invalidate those keys.
@@ -453,13 +426,26 @@ graph LR
 
 ## 13. Notable Patterns & Decisions
 
+### 13.1 Technical
+
 1. **No backend logic:** average price, tax computation and deduplication all run **client-side**. There are no Edge Functions, stored procedures or views.
-2. **Full data fetch:** no server-side filtering, aggregation or pagination beyond React Query's cache.
-3. **Single cost-basis implementation:** Posição and both IR tabs share `applyTradeToCostBasis()`, which is unit-tested.
+2. **Full data fetch:** every page reads all of the user's rows and filters in memory; no server-side filtering, aggregation or pagination.
+3. **Single cost-basis implementation:** Posição, the dashboard and both IR tabs share `applyTradeToCostBasis()`, which is unit-tested.
 4. **Static asset classification:** determined at build time from bundled CSVs.
 5. **Application-only deduplication:** frequency-map matching before insert; the DB allows duplicates on purpose.
 6. **Environment:** `.env` is gitignored; `.env.example` lists the required `VITE_SUPABASE_*` variables. Every `VITE_` variable is embedded in the client bundle, so only the publishable key belongs there.
 7. **Lovable origin:** scaffolded with [Lovable](https://lovable.dev), which generated the Supabase client/types and the shadcn/ui setup. The project is no longer edited through Lovable.
+
+### 13.2 Business rules and why
+
+1. **Buys and sells come only from the Negociação statement.** The movements statement records lending legs as "Transferência - Liquidação" with prices, indistinguishable from settlements; reading them as trades would inflate positions (§7.1).
+2. **Capital returns reduce cost, they aren't income.** "Restituição de Capital" and "Amortização" give back part of the investment, so both the dividends and the movements statements import them as `AMORTIZATION` trades. That is also how they are treated for IR.
+3. **Bonus shares enter at zero cost, whole shares only.** The statement doesn't carry the cost the company assigns per share, so the import warns and the user edits it. Fractions are sold in an auction; both the fraction and the auction are left out.
+4. **"Atualização" is never imported.** It sometimes adds shares (a fund merger) and sometimes only restates a position, and the row doesn't say which. The import warns so the user can enter mergers by hand.
+5. **Deduplication ignores the institution and the unit price.** B3 writes the same broker in more than one way over time (`BANCO BTG PACTUAL S/A` and `S/A.`), and the unit price is rounded differently per statement (2 decimals in Proventos, 3 in Movimentação); ticker, date, type, quantity and value identify a row.
+6. **Tickers drop the fractional `F`.** `PETR4F` and `PETR4` are the same asset for position and tax.
+7. **Oversold sales are never taxed.** A sale larger than the recorded position means trades are missing; its gain can't be computed, so only its loss counts.
+8. **"Total Vendas" in Negociações includes `AMORTIZATION`.** It sums the cash that came back from the assets, not only sales. The IR calculations use sales only.
 
 ---
 
