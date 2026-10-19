@@ -4,7 +4,7 @@ import { Wallet, TrendingUp, Trash2, ArrowLeftRight } from 'lucide-react';
 import { FileUploadCard } from '@/components/import/FileUploadCard';
 import { PreviewTable } from '@/components/import/PreviewTable';
 import { MovimentacaoPreview } from '@/components/import/MovimentacaoPreview';
-import { parseProventosFile, parseNegociacaoFileAuto, type DividendEventRow, type TradeOperationRow, type ParseResult } from '@/lib/xlsx-parser';
+import { parseProventosFile, parseNegociacaoFileAuto, type DividendEventRow, type TradeOperationRow, type ParseResult, type ProventosParseResult } from '@/lib/xlsx-parser';
 import { parseMovimentacaoFile, type MovimentacaoResult } from '@/lib/b3-movimentacao';
 import { dividendKey, rowsToInsert, tradeKey } from '@/lib/import-dedupe';
 import { formatISODateLocal } from '@/lib/formatters';
@@ -96,7 +96,7 @@ async function insertNewTrades(rows: TradeOperationRow[], userId: string) {
 
 export default function Import() {
   const queryClient = useQueryClient();
-  const [proventos, setProventos] = useState<FlowState<ParseResult<DividendEventRow>>>(IDLE);
+  const [proventos, setProventos] = useState<FlowState<ProventosParseResult>>(IDLE);
   const [negociacao, setNegociacao] = useState<FlowState<ParseResult<TradeOperationRow>>>(IDLE);
   const [movimentacao, setMovimentacao] = useState<FlowState<MovimentacaoResult>>(IDLE);
 
@@ -123,19 +123,24 @@ export default function Import() {
     setProventos((prev) => ({ ...prev, state: 'importing' }));
 
     try {
-      const { inserted, total } = await insertNewDividends(proventos.parseResult.data, await currentUserId());
-      if (inserted === 0) {
-        setProventos({ state: 'success', parseResult: null, message: `Todos os ${total} proventos já estavam cadastrados.` });
+      const userId = await currentUserId();
+      const { inserted, total } = await insertNewDividends(proventos.parseResult.data, userId);
+      // Capital returns go to trade_operations as amortizations
+      const amortizations = await insertNewTrades(proventos.parseResult.trades, userId);
+      if (inserted + amortizations.inserted === 0) {
+        setProventos({ state: 'success', parseResult: null, message: `Todos os ${total + amortizations.total} registros já estavam cadastrados.` });
         toast.info('Nenhum dado novo para importar.');
         return;
       }
-      queryClient.invalidateQueries({ queryKey: DIVIDEND_EVENTS_KEY });
+      if (inserted) queryClient.invalidateQueries({ queryKey: DIVIDEND_EVENTS_KEY });
+      if (amortizations.inserted) queryClient.invalidateQueries({ queryKey: TRADE_OPERATIONS_KEY });
+      const amortizationNote = amortizations.inserted ? ` ${amortizations.inserted} amortizações importadas em Negociações.` : '';
       setProventos({
         state: 'success',
         parseResult: null,
-        message: `${inserted} novos proventos importados (${total - inserted} duplicados ignorados).`,
+        message: `${inserted} novos proventos importados (${total - inserted} duplicados ignorados).${amortizationNote}`,
       });
-      toast.success(`${inserted} importados com sucesso!`);
+      toast.success(`${inserted + amortizations.inserted} importados com sucesso!`);
     } catch (err) {
       setProventos((prev) => ({ ...prev, state: 'error', message: `Erro ao importar: ${errorMessage(err)}` }));
       toast.error('Erro ao importar proventos');

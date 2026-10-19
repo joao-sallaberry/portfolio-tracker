@@ -39,10 +39,7 @@ export function dividendsXlsx() {
     const date = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
     for (const [produto, qty] of tickers) rows.push([produto, date, 'Rendimento', 'XP INVESTIMENTOS', qty, 0.1, Math.round(qty * 10) / 100]);
   }
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), 'Proventos');
-  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
-  return { name: 'proventos.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer };
+  return xlsxFile('proventos.xlsx', 'Proventos', rows);
 }
 
 /**
@@ -62,8 +59,30 @@ export function movimentacaoXlsx() {
     ['Credito', `16/04/${YEAR}`, 'Empréstimo', 'EVEN3 - EVEN CONSTRUTORA', 'XP INVESTIMENTOS', 0, '-', 7.13],
     ['Credito', `20/04/${YEAR}`, 'Leilão de Fração', 'ITSA4 - ITAUSA S.A.', 'XP INVESTIMENTOS', 0.75, 10, 7.5],
   ];
+  return xlsxFile('movimentacao.xlsx', 'Movimentação', rows);
+}
+
+/**
+ * The same ITSA4 capital return in both statements: the dividends statement lists it next to a
+ * JCP payment and must turn it into an amortization, which the movements statement then finds
+ * already stored.
+ */
+export function capitalReturnFiles() {
+  const proventos = xlsxFile('proventos-restituicao.xlsx', 'Proventos', [
+    ['Produto', 'Pagamento', 'Tipo de Evento', 'Instituição', 'Quantidade', 'Preço unitário', 'Valor líquido'],
+    ['ITSA4 - ITAUSA S.A.', `10/05/${YEAR}`, 'Juros Sobre Capital Próprio', 'XP INVESTIMENTOS', 110, 0.02, 1.87],
+    ['ITSA4 - ITAUSA S.A.', `10/05/${YEAR}`, 'Restituição de Capital', 'XP INVESTIMENTOS', 110, 0.1, 11],
+  ]);
+  const movimentacao = xlsxFile('movimentacao-restituicao.xlsx', 'Movimentação', [
+    ['Entrada/Saída', 'Data', 'Movimentação', 'Produto', 'Instituição', 'Quantidade', 'Preço unitário', 'Valor da Operação'],
+    ['Credito', `10/05/${YEAR}`, 'Restituição de Capital', 'ITSA4 - ITAUSA S.A.', 'XP INVESTIMENTOS', 110, 0.1, 11],
+  ]);
+  return { proventos, movimentacao };
+}
+
+function xlsxFile(name: string, sheetName: string, rows: (string | number)[][]) {
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), 'Movimentação');
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), sheetName);
   const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
-  return { name: 'movimentacao.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer };
+  return { name, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer };
 }

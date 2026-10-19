@@ -1,5 +1,5 @@
 import { expect, test as base, type Page } from '@playwright/test';
-import { YEAR, dividendsXlsx, movimentacaoXlsx, tradesCsv } from './support/fixtures';
+import { YEAR, capitalReturnFiles, dividendsXlsx, movimentacaoXlsx, tradesCsv } from './support/fixtures';
 import { login, resetTestAccount } from './support/test-account';
 
 // Fails any test whose page throws an uncaught error
@@ -160,4 +160,19 @@ test('imports the B3 movements statement: dividends and corporate events, skippi
   // Split (100) plus the whole shares of the bonus (10); the fraction auction is ignored
   await page.goto('/posicao');
   await expect(page.getByRole('row').filter({ hasText: 'ITSA4' })).toContainText('110');
+});
+
+test('capital returns in the dividends statement become amortizations, shared with the movements statement', async ({ page }) => {
+  const { proventos, movimentacao } = capitalReturnFiles();
+  await chooseFile(page, 'Proventos Recebidos', proventos);
+  await expect(page.getByText(/Restituição de Capital de ITSA4 será importada como amortização/)).toBeVisible();
+  await page.getByRole('button', { name: 'Confirmar importação' }).click();
+  await expect(page.getByText('1 novos proventos importados (0 duplicados ignorados). 1 amortizações importadas em Negociações.')).toBeVisible();
+
+  await importFile(page, 'Movimentações (B3)', movimentacao);
+  await expect(page.getByText('0 proventos e 0 eventos importados (1 já cadastrados ignorados).')).toBeVisible();
+
+  // It isn't counted as income: only the JCP is listed for ITSA4
+  await page.goto('/proventos');
+  await expect(page.getByRole('row').filter({ hasText: 'ITSA4' })).toHaveCount(1);
 });
