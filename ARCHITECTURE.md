@@ -225,7 +225,7 @@ Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes
 
 ### 7.3 Insertion
 
-Valid rows are mapped to DB columns, tagged with `user_id`, deduplicated (§7.4) and inserted in a single `insert()` call.
+Valid rows are mapped to DB columns (dates as local `YYYY-MM-DD` via `formatISODateLocal`), tagged with `user_id`, deduplicated (§7.4) and inserted in a single `insert()` call (`insertNewDividends` / `insertNewTrades` in Import.tsx, shared by every import flow).
 
 ### 7.4 Deduplication Logic
 
@@ -234,7 +234,7 @@ Before inserting, the page fetches **all existing records** for the user (`fetch
 - proventos: `ticker-payment_date-event_type-quantity-net_value`
 - negociações: `trade_date-movement_type-ticker-quantity-total_value`
 
-Each incoming row "consumes" one existing match; only rows beyond the existing count are inserted. Re-importing the same file adds nothing, while a file with three identical rows against one in the DB inserts two. The database no longer enforces uniqueness (§4.4).
+Each incoming row "consumes" one existing match; only rows beyond the existing count are inserted. Re-importing the same file adds nothing, while a file with three identical rows against one in the DB inserts two. The database no longer enforces uniqueness (§4.4). The logic lives in [import-dedupe.ts](src/lib/import-dedupe.ts) (`rowsToInsert`, `dividendKey`, `tradeKey`), covered by unit tests. The keys ignore the institution and the unit price, so identical trades at two brokers on the same day count as one, and a trade edited in the app no longer matches its original statement row.
 
 ### 7.5 Data Clearing
 

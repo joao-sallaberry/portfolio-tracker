@@ -20,6 +20,11 @@ export function parseISODateLocal(dateStr: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+/** YYYY-MM-DD from the local date (toISOString would shift it by the UTC offset). */
+export function formatISODateLocal(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 export function formatDateBR(date: Date | string): string {
   const d = typeof date === 'string' ? (parseISODateLocal(date) ?? new Date(date)) : date;
 

@@ -101,76 +101,7 @@ export function PreviewTable<T extends DividendEventRow | TradeOperationRow>({
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {type === 'proventos' ? (
-                  <>
-                    <TableHead>Ativo</TableHead>
-                    <TableHead>Data Pagamento</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Instituição</TableHead>
-                    <TableHead className="text-right">Quantidade</TableHead>
-                    <TableHead className="text-right">Preço Unit.</TableHead>
-                    <TableHead className="text-right">Valor Líquido</TableHead>
-                  </>
-                ) : (
-                  <>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Ativo</TableHead>
-                    <TableHead>Mercado</TableHead>
-                    <TableHead>Instituição</TableHead>
-                    <TableHead className="text-right">Quantidade</TableHead>
-                    <TableHead className="text-right">Preço</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
-                  </>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {previewData.map((row, i) => (
-                <TableRow 
-                  key={i} 
-                  className={row.hasErrors ? "bg-destructive/10 hover:bg-destructive/20" : ""}
-                  title={row.errorMessages?.join('\n')}
-                >
-                  {type === 'proventos' ? (
-                    <>
-                      <TableCell className="font-mono font-medium">{(row as DividendEventRow).ticker || '-'}</TableCell>
-                      <TableCell>{(row as DividendEventRow).paymentDate ? formatDateBR((row as DividendEventRow).paymentDate!) : '-'}</TableCell>
-                      <TableCell>{(row as DividendEventRow).eventType || '-'}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{(row as DividendEventRow).institution || '-'}</TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber((row as DividendEventRow).quantity, 0)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrencyBRL((row as DividendEventRow).unitPrice)}</TableCell>
-                      <TableCell className="text-right font-mono font-medium">{formatCurrencyBRL((row as DividendEventRow).netValue)}</TableCell>
-                    </>
-                  ) : (
-                    <>
-                      <TableCell>{(row as TradeOperationRow).tradeDate ? formatDateBR((row as TradeOperationRow).tradeDate!) : '-'}</TableCell>
-                      <TableCell>
-                        <span className={
-                          (row as TradeOperationRow).movementType === 'BUY' || (row as TradeOperationRow).movementType === 'BONUS' ? 'text-success' : 
-                          (row as TradeOperationRow).movementType === 'SELL' || (row as TradeOperationRow).movementType === 'AMORTIZATION' ? 'text-destructive' : 
-                          'text-muted-foreground'
-                        }>
-                          {(row as TradeOperationRow).movementTypeRaw}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-mono font-medium">{(row as TradeOperationRow).ticker}</TableCell>
-                      <TableCell className="max-w-[120px] truncate">{(row as TradeOperationRow).market}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{(row as TradeOperationRow).institution}</TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber((row as TradeOperationRow).quantity, 0)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrencyBRL((row as TradeOperationRow).price)}</TableCell>
-                      <TableCell className="text-right font-mono font-medium">{formatCurrencyBRL((row as TradeOperationRow).totalValue)}</TableCell>
-                    </>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <PreviewRows type={type} data={previewData} />
 
         {data.length > 20 && (
           <p className="text-center text-sm text-muted-foreground">
@@ -179,5 +110,81 @@ export function PreviewTable<T extends DividendEventRow | TradeOperationRow>({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Table of parsed rows (no header actions); used by the import previews. */
+export function PreviewRows<T extends DividendEventRow | TradeOperationRow>({ type, data }: { type: 'proventos' | 'negociacao'; data: T[] }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {type === 'proventos' ? (
+              <>
+                <TableHead>Ativo</TableHead>
+                <TableHead>Data Pagamento</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Instituição</TableHead>
+                <TableHead className="text-right">Quantidade</TableHead>
+                <TableHead className="text-right">Preço Unit.</TableHead>
+                <TableHead className="text-right">Valor Líquido</TableHead>
+              </>
+            ) : (
+              <>
+                <TableHead>Data</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Ativo</TableHead>
+                <TableHead>Mercado</TableHead>
+                <TableHead>Instituição</TableHead>
+                <TableHead className="text-right">Quantidade</TableHead>
+                <TableHead className="text-right">Preço</TableHead>
+                <TableHead className="text-right">Valor Total</TableHead>
+              </>
+            )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.map((row, i) => (
+            <TableRow 
+              key={i} 
+              className={row.hasErrors ? "bg-destructive/10 hover:bg-destructive/20" : ""}
+              title={row.errorMessages?.join('\n')}
+            >
+              {type === 'proventos' ? (
+                <>
+                  <TableCell className="font-mono font-medium">{(row as DividendEventRow).ticker || '-'}</TableCell>
+                  <TableCell>{(row as DividendEventRow).paymentDate ? formatDateBR((row as DividendEventRow).paymentDate!) : '-'}</TableCell>
+                  <TableCell>{(row as DividendEventRow).eventType || '-'}</TableCell>
+                  <TableCell className="max-w-[150px] truncate">{(row as DividendEventRow).institution || '-'}</TableCell>
+                  <TableCell className="text-right font-mono">{formatNumber((row as DividendEventRow).quantity, 0)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrencyBRL((row as DividendEventRow).unitPrice)}</TableCell>
+                  <TableCell className="text-right font-mono font-medium">{formatCurrencyBRL((row as DividendEventRow).netValue)}</TableCell>
+                </>
+              ) : (
+                <>
+                  <TableCell>{(row as TradeOperationRow).tradeDate ? formatDateBR((row as TradeOperationRow).tradeDate!) : '-'}</TableCell>
+                  <TableCell>
+                    <span className={
+                      (row as TradeOperationRow).movementType === 'BUY' || (row as TradeOperationRow).movementType === 'BONUS' ? 'text-success' : 
+                      (row as TradeOperationRow).movementType === 'SELL' || (row as TradeOperationRow).movementType === 'AMORTIZATION' ? 'text-destructive' : 
+                      'text-muted-foreground'
+                    }>
+                      {(row as TradeOperationRow).movementTypeRaw}
+                    </span>
+                  </TableCell>
+                  <TableCell className="font-mono font-medium">{(row as TradeOperationRow).ticker}</TableCell>
+                  <TableCell className="max-w-[120px] truncate">{(row as TradeOperationRow).market}</TableCell>
+                  <TableCell className="max-w-[150px] truncate">{(row as TradeOperationRow).institution}</TableCell>
+                  <TableCell className="text-right font-mono">{formatNumber((row as TradeOperationRow).quantity, 0)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrencyBRL((row as TradeOperationRow).price)}</TableCell>
+                  <TableCell className="text-right font-mono font-medium">{formatCurrencyBRL((row as TradeOperationRow).totalValue)}</TableCell>
+                </>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
