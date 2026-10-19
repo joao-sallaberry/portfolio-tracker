@@ -192,7 +192,7 @@ Pages are loaded on demand with `React.lazy` (a skeleton shows while a page's ch
 
 ## 7. Data Import Pipeline
 
-The import page ([Import.tsx](src/pages/Import.tsx)) is the **primary data ingestion path**. It handles two independent flows (proventos / negociações), each going through `idle → parsing → preview → importing → success | error`.
+The import page ([Import.tsx](src/pages/Import.tsx)) is the **primary data ingestion path**. It handles three independent flows (proventos / negociações / movimentações), each going through `idle → parsing → preview → importing → success | error`.
 
 ### 7.1 File Parsing
 
@@ -222,6 +222,23 @@ Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes
 ### 7.2 Preview & Confirmation
 
 [PreviewTable](src/components/import/PreviewTable.tsx) shows the first 20 rows (rows with errors highlighted, messages in the tooltip), the first 10 warnings and the valid-row count. File-level errors disable **"Confirmar importação"**. Rows with `hasErrors` are skipped on import.
+
+#### Movimentações (B3 movements statement)
+
+[b3-movimentacao.ts](src/lib/b3-movimentacao.ts) parses the B3 "Extrato de Movimentação" (columns `Entrada/Saída`, `Data`, `Movimentação`, `Produto`, `Instituição`, `Quantidade`, `Preço unitário`, `Valor da Operação`) and classifies each row (credits only):
+
+| Movimentação | Imported as |
+|---|---|
+| Dividendo, Juros Sobre Capital Próprio, Rendimento, Reembolso | dividend event (same `event_type` names as the dividends statement, so the two dedupe against each other) |
+| Desdobro | `SPLIT` |
+| Bonificação em Ativos | `BONUS`, whole shares only, zero cost (warning: edit the cost in Negociações) |
+| Amortização, Restituição de Capital | `AMORTIZATION` |
+| Resgate | `SELL` |
+| Atualização | not imported, warning (sometimes adds shares, e.g. a fund merger, sometimes restates the position) |
+| Transferência - Liquidação, Transferência, Empréstimo, Fração em Ativos, Leilão de Fração, subscription rights, `* - Transferido`, fixed income (CDB...) | ignored |
+| anything else | not imported, warning |
+
+Buys and sells are **not** taken from this statement: "Transferência - Liquidação" also records shares going to and returning from lending, at reference prices. They come from the trades statement. Trades from this statement get `market = 'Movimentação B3'`.
 
 ### 7.3 Insertion
 

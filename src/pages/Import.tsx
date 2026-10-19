@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Wallet, TrendingUp, Trash2 } from 'lucide-react';
+import { Wallet, TrendingUp, Trash2, ArrowLeftRight } from 'lucide-react';
 import { FileUploadCard } from '@/components/import/FileUploadCard';
 import { PreviewTable } from '@/components/import/PreviewTable';
+import { MovimentacaoPreview } from '@/components/import/MovimentacaoPreview';
 import { parseProventosFile, parseNegociacaoFileAuto, type DividendEventRow, type TradeOperationRow, type ParseResult } from '@/lib/xlsx-parser';
+import { parseMovimentacaoFile, type MovimentacaoResult } from '@/lib/b3-movimentacao';
 import { dividendKey, rowsToInsert, tradeKey } from '@/lib/import-dedupe';
 import { formatISODateLocal } from '@/lib/formatters';
 import { supabase } from '@/integrations/supabase/client';
@@ -96,6 +98,7 @@ export default function Import() {
   const queryClient = useQueryClient();
   const [proventos, setProventos] = useState<FlowState<ParseResult<DividendEventRow>>>(IDLE);
   const [negociacao, setNegociacao] = useState<FlowState<ParseResult<TradeOperationRow>>>(IDLE);
+  const [movimentacao, setMovimentacao] = useState<FlowState<MovimentacaoResult>>(IDLE);
 
   const parseInto = async <T extends { errors: string[] }>(
     file: File,
@@ -113,6 +116,7 @@ export default function Import() {
 
   const handleProventosFile = (file: File) => parseInto(file, parseProventosFile, setProventos);
   const handleNegociacaoFile = (file: File) => parseInto(file, parseNegociacaoFileAuto, setNegociacao);
+  const handleMovimentacaoFile = (file: File) => parseInto(file, parseMovimentacaoFile, setMovimentacao);
 
   const confirmProventosImport = async () => {
     if (!proventos.parseResult) return;
@@ -162,8 +166,34 @@ export default function Import() {
     }
   };
 
+  const confirmMovimentacaoImport = async () => {
+    if (!movimentacao.parseResult) return;
+    setMovimentacao((prev) => ({ ...prev, state: 'importing' }));
+
+    try {
+      const userId = await currentUserId();
+      const dividends = await insertNewDividends(movimentacao.parseResult.dividends, userId);
+      const trades = await insertNewTrades(movimentacao.parseResult.trades, userId);
+      if (dividends.inserted) queryClient.invalidateQueries({ queryKey: DIVIDEND_EVENTS_KEY });
+      if (trades.inserted) queryClient.invalidateQueries({ queryKey: TRADE_OPERATIONS_KEY });
+
+      const duplicates = dividends.total - dividends.inserted + trades.total - trades.inserted;
+      setMovimentacao({
+        state: 'success',
+        parseResult: null,
+        message: `${dividends.inserted} proventos e ${trades.inserted} eventos importados (${duplicates} já cadastrados ignorados).`,
+      });
+      if (dividends.inserted + trades.inserted === 0) toast.info('Nenhum dado novo para importar.');
+      else toast.success(`${dividends.inserted + trades.inserted} importados com sucesso!`);
+    } catch (err) {
+      setMovimentacao((prev) => ({ ...prev, state: 'error', message: `Erro ao importar: ${errorMessage(err)}` }));
+      toast.error('Erro ao importar movimentações');
+    }
+  };
+
   const cancelProventosPreview = () => setProventos(IDLE);
   const cancelNegociacaoPreview = () => setNegociacao(IDLE);
+  const cancelMovimentacaoPreview = () => setMovimentacao(IDLE);
 
   const clearProventosHistory = async () => {
     try {
@@ -196,7 +226,7 @@ export default function Import() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         <FileUploadCard
           title="Proventos Recebidos"
           description="Dividendos, JCP, rendimentos e outros proventos"
@@ -222,6 +252,19 @@ export default function Import() {
           }
           statusMessage={negociacao.message}
           acceptFormats=".xlsx,.xls,.csv"
+        />
+
+        <FileUploadCard
+          title="Movimentações (B3)"
+          description="Extrato de movimentação da B3: proventos, desdobros, bonificações, amortizações e resgates"
+          icon={<ArrowLeftRight className="h-6 w-6" />}
+          onFileSelect={handleMovimentacaoFile}
+          isLoading={movimentacao.state === 'parsing'}
+          status={
+            movimentacao.state === 'success' ? 'success' :
+              movimentacao.state === 'error' ? 'error' : 'idle'
+          }
+          statusMessage={movimentacao.message}
         />
       </div>
 
@@ -298,6 +341,15 @@ export default function Import() {
           onCancel={cancelNegociacaoPreview}
           isImporting={negociacao.state === 'importing'}
           type="negociacao"
+        />
+      )}
+
+      {(movimentacao.state === 'preview' || movimentacao.state === 'importing') && movimentacao.parseResult && (
+        <MovimentacaoPreview
+          result={movimentacao.parseResult}
+          onConfirm={confirmMovimentacaoImport}
+          onCancel={cancelMovimentacaoPreview}
+          isImporting={movimentacao.state === 'importing'}
         />
       )}
     </div>

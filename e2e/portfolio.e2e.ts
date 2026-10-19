@@ -1,5 +1,5 @@
 import { expect, test as base, type Page } from '@playwright/test';
-import { YEAR, dividendsXlsx, tradesCsv } from './support/fixtures';
+import { YEAR, dividendsXlsx, movimentacaoXlsx, tradesCsv } from './support/fixtures';
 import { login, resetTestAccount } from './support/test-account';
 
 // Fails any test whose page throws an uncaught error
@@ -26,13 +26,17 @@ test.beforeEach(async ({ page }) => {
   await login(page);
 });
 
-async function importFile(page: Page, card: 'Proventos' | 'Negociações', file: { name: string; mimeType: string; buffer: Buffer }) {
+type ImportCard = 'Proventos Recebidos' | 'Negociações' | 'Movimentações (B3)';
+
+async function chooseFile(page: Page, card: ImportCard, file: { name: string; mimeType: string; buffer: Buffer }) {
   await page.goto('/importar');
-  const inputs = page.locator('input[type=file]');
-  await inputs.first().waitFor({ state: 'attached' });
-  // The trades card is the only one that accepts CSV
-  const tradesIndex = (await inputs.nth(0).getAttribute('accept'))?.includes('.csv') ? 0 : 1;
-  await inputs.nth(card === 'Negociações' ? tradesIndex : 1 - tradesIndex).setInputFiles(file);
+  const cardInput = page.locator('.bg-card').filter({ hasText: card }).locator('input[type=file]');
+  await cardInput.waitFor({ state: 'attached' });
+  await cardInput.setInputFiles(file);
+}
+
+async function importFile(page: Page, card: ImportCard, file: { name: string; mimeType: string; buffer: Buffer }) {
+  await chooseFile(page, card, file);
   await page.getByRole('button', { name: 'Confirmar importação' }).click();
 }
 
@@ -46,7 +50,7 @@ test('imports trades and dividends, and skips duplicates on re-import', async ({
   await importFile(page, 'Negociações', tradesCsv());
   await expect(page.getByText('Todas as 9 negociações já estavam cadastradas.')).toBeVisible();
 
-  await importFile(page, 'Proventos', dividendsXlsx());
+  await importFile(page, 'Proventos Recebidos', dividendsXlsx());
   await expect(page.getByText('60 novos proventos importados (0 duplicados ignorados).')).toBeVisible();
 });
 
@@ -138,4 +142,22 @@ test('unknown routes show the 404 page, and logged-out users are sent to login',
   await loggedOut.goto('/imposto-renda');
   await expect(loggedOut).toHaveURL('/auth');
   await loggedOut.close();
+});
+
+test('imports the B3 movements statement: dividends and corporate events, skipping stored rows', async ({ page }) => {
+  await chooseFile(page, 'Movimentações (B3)', movimentacaoXlsx());
+  await expect(page.getByText('8 linhas • 2 proventos • 2 eventos • 3 ignoradas')).toBeVisible();
+  await expect(page.getByText(/Atualização de HGLG11 \(35\.08\)/)).toBeVisible();
+  await expect(page.getByText(/bonificação de 10 ITSA4 importada com custo zero/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Confirmar importação' }).click();
+  // The EGIE3 dividend is already stored from the dividends statement
+  await expect(page.getByText('1 proventos e 2 eventos importados (1 já cadastrados ignorados).')).toBeVisible();
+
+  await importFile(page, 'Movimentações (B3)', movimentacaoXlsx());
+  await expect(page.getByText('0 proventos e 0 eventos importados (4 já cadastrados ignorados).')).toBeVisible();
+
+  // Split (100) plus the whole shares of the bonus (10); the fraction auction is ignored
+  await page.goto('/posicao');
+  await expect(page.getByRole('row').filter({ hasText: 'ITSA4' })).toContainText('110');
 });
