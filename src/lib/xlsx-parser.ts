@@ -67,7 +67,7 @@ function findColumnIndex(headers: string[], targetColumn: string): number {
   return headers.findIndex(h => normalizeColumnName(h) === normalizedTarget);
 }
 
-function parseExcelDate(value: unknown): Date | null {
+export function parseExcelDate(value: unknown): Date | null {
   if (!value) return null;
   
   // If it's a Date object
