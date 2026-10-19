@@ -92,117 +92,152 @@ export function parseExcelDate(value: unknown): Date | null {
   return null;
 }
 
-export function parseProventosFile(file: File): Promise<ParseResult<DividendEventRow>> {
+/** Market recorded on the trades derived from the dividends statement. */
+export const PROVENTOS_MARKET = 'Proventos B3';
+
+/** Capital returns give back part of the investment: they reduce the average cost instead of counting as income. */
+const CAPITAL_RETURN_TYPES = ['Amortização', 'Restituição de Capital'].map(normalizeColumnName);
+
+export const isCapitalReturn = (eventType: string) => CAPITAL_RETURN_TYPES.includes(normalizeColumnName(eventType));
+
+export interface ProventosParseResult extends ParseResult<DividendEventRow> {
+  /** Capital returns, imported as AMORTIZATION trades */
+  trades: TradeOperationRow[];
+}
+
+/** Parses the rows of the B3 dividends statement (first row = header). */
+export function parseProventosRows(jsonData: unknown[][]): ProventosParseResult {
+  if (jsonData.length < 2) {
+    return { data: [], trades: [], errors: ['Arquivo vazio ou sem dados'], warnings: [], totalRows: 0 };
+  }
+
+  const headers = jsonData[0] as string[];
+  const warnings: string[] = [];
+
+  // Validate required columns
+  const missingColumns: string[] = [];
+  const columnIndexes: Record<string, number> = {};
+
+  for (const col of PROVENTOS_COLUMNS) {
+    const idx = findColumnIndex(headers, col);
+    if (idx === -1) {
+      missingColumns.push(col);
+    } else {
+      columnIndexes[col] = idx;
+    }
+  }
+
+  if (missingColumns.length > 0) {
+    return {
+      data: [],
+      trades: [],
+      errors: [`Colunas obrigatórias não encontradas: ${missingColumns.join(', ')}`],
+      warnings: [],
+      totalRows: 0,
+    };
+  }
+
+  const parsedRows: DividendEventRow[] = [];
+  const trades: TradeOperationRow[] = [];
+
+  for (let i = 1; i < jsonData.length; i++) {
+    const row = jsonData[i] as unknown[];
+    if (!row || row.length === 0 || row.every(cell => !cell)) continue;
+
+    try {
+      const productRaw = String(row[columnIndexes['Produto']] || '').trim();
+      const paymentDate = parseExcelDate(row[columnIndexes['Pagamento']]);
+      const eventType = String(row[columnIndexes['Tipo de Evento']] || '').trim();
+      const institution = String(row[columnIndexes['Instituição']] || '').trim();
+      const quantity = parseNumberBR(row[columnIndexes['Quantidade']] as string | number);
+      const unitPrice = parseNumberBR(row[columnIndexes['Preço unitário']] as string | number);
+      const netValue = parseNumberBR(row[columnIndexes['Valor líquido']] as string | number);
+      const ticker = normalizeTicker(extractTicker(productRaw));
+
+      const rowErrors: string[] = [];
+      if (!productRaw) rowErrors.push('Produto não informado');
+      if (!paymentDate) rowErrors.push('Data de pagamento inválida ou não informada');
+      if (!eventType) rowErrors.push('Tipo de evento não informado');
+
+      if (rowErrors.length === 0 && isCapitalReturn(eventType)) {
+        trades.push({
+          tradeDate: paymentDate,
+          movementType: 'AMORTIZATION',
+          movementTypeRaw: eventType,
+          market: PROVENTOS_MARKET,
+          maturity: null,
+          institution,
+          ticker,
+          quantity,
+          price: unitPrice,
+          totalValue: netValue,
+        });
+        warnings.push(`Linha ${i + 1}: ${eventType} de ${ticker} será importada como amortização em Negociações (reduz o custo médio, não conta como provento).`);
+        continue;
+      }
+
+      parsedRows.push({
+        productRaw,
+        ticker,
+        paymentDate,
+        eventType,
+        institution,
+        quantity,
+        unitPrice,
+        netValue,
+        hasErrors: rowErrors.length > 0,
+        errorMessages: rowErrors,
+      });
+
+      if (rowErrors.length > 0) {
+        warnings.push(`Linha ${i + 1}: ${rowErrors.join(', ')}`);
+      }
+    } catch (err) {
+      warnings.push(`Linha ${i + 1}: erro ao processar - ${err}`);
+    }
+  }
+
+  return {
+    data: parsedRows,
+    trades,
+    errors: [],
+    warnings,
+    totalRows: jsonData.length - 1,
+  };
+}
+
+export function parseProventosFile(file: File): Promise<ProventosParseResult> {
   return new Promise((resolve) => {
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
         // Don't use cellDates to avoid timezone issues - parse dates manually
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
-        
-        if (jsonData.length < 2) {
-          resolve({ data: [], errors: ['Arquivo vazio ou sem dados'], warnings: [], totalRows: 0 });
-          return;
-        }
-        
-        const headers = jsonData[0] as string[];
-        const errors: string[] = [];
-        const warnings: string[] = [];
-        
-        // Validate required columns
-        const missingColumns: string[] = [];
-        const columnIndexes: Record<string, number> = {};
-        
-        for (const col of PROVENTOS_COLUMNS) {
-          const idx = findColumnIndex(headers, col);
-          if (idx === -1) {
-            missingColumns.push(col);
-          } else {
-            columnIndexes[col] = idx;
-          }
-        }
-        
-        if (missingColumns.length > 0) {
-          resolve({
-            data: [],
-            errors: [`Colunas obrigatórias não encontradas: ${missingColumns.join(', ')}`],
-            warnings: [],
-            totalRows: 0,
-          });
-          return;
-        }
-        
-        const parsedRows: DividendEventRow[] = [];
-        
-        for (let i = 1; i < jsonData.length; i++) {
-          const row = jsonData[i] as unknown[];
-          if (!row || row.length === 0 || row.every(cell => !cell)) continue;
-          
-          try {
-            const productRaw = String(row[columnIndexes['Produto']] || '').trim();
-            const paymentDate = parseExcelDate(row[columnIndexes['Pagamento']]);
-            const eventType = String(row[columnIndexes['Tipo de Evento']] || '').trim();
-            const institution = String(row[columnIndexes['Instituição']] || '').trim();
-            const quantity = parseNumberBR(row[columnIndexes['Quantidade']] as string | number);
-            const unitPrice = parseNumberBR(row[columnIndexes['Preço unitário']] as string | number);
-            const netValue = parseNumberBR(row[columnIndexes['Valor líquido']] as string | number);
-            
-            const rowErrors: string[] = [];
-            if (!productRaw) rowErrors.push('Produto não informado');
-            if (!paymentDate) rowErrors.push('Data de pagamento inválida ou não informada');
-            if (!eventType) rowErrors.push('Tipo de evento não informado');
-            
-            parsedRows.push({
-              productRaw,
-              ticker: normalizeTicker(extractTicker(productRaw)),
-              paymentDate,
-              eventType,
-              institution,
-              quantity,
-              unitPrice,
-              netValue,
-              hasErrors: rowErrors.length > 0,
-              errorMessages: rowErrors,
-            });
-            
-            if (rowErrors.length > 0) {
-              warnings.push(`Linha ${i + 1}: ${rowErrors.join(', ')}`);
-            }
-          } catch (err) {
-            warnings.push(`Linha ${i + 1}: erro ao processar - ${err}`);
-          }
-        }
-        
-        resolve({
-          data: parsedRows,
-          errors,
-          warnings,
-          totalRows: jsonData.length - 1,
-        });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        resolve(parseProventosRows(XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][]));
       } catch (err) {
         resolve({
           data: [],
+          trades: [],
           errors: [`Erro ao ler arquivo: ${err}`],
           warnings: [],
           totalRows: 0,
         });
       }
     };
-    
+
     reader.onerror = () => {
       resolve({
         data: [],
+        trades: [],
         errors: ['Erro ao ler arquivo'],
         warnings: [],
         totalRows: 0,
       });
     };
-    
+
     reader.readAsArrayBuffer(file);
   });
 }

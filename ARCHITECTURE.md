@@ -198,7 +198,7 @@ The import page ([Import.tsx](src/pages/Import.tsx)) is the **primary data inges
 
 Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes tickers with `normalizeTicker()`, so fractional-market tickers (`PETR4F`) are stored as the base ticker (`PETR4`). The fractional origin stays in `trade_operations.market` (`Mercado Fracionário`) for B3 XLSX imports. Every parser returns `ParseResult<T>` with `data[]`, `errors[]` (file-level, e.g. missing headers), `warnings[]` and `totalRows`. Each parsed row carries `hasErrors` and `errorMessages[]`.
 
-- **Proventos** (`parseProventosFile()`): B3 XLSX with columns `Produto`, `Pagamento`, `Tipo de Evento`, `Instituição`, `Quantidade`, `Preço unitário`, `Valor líquido`. A row is flagged when product, payment date or event type is missing/invalid.
+- **Proventos** (`parseProventosFile()`): B3 XLSX with columns `Produto`, `Pagamento`, `Tipo de Evento`, `Instituição`, `Quantidade`, `Preço unitário`, `Valor líquido`. A row is flagged when product, payment date or event type is missing/invalid. Capital returns (`Restituição de Capital`, `Amortização`) are not income: they come back in an extra `trades[]` as `AMORTIZATION` (`market = 'Proventos B3'`, with a warning) and are inserted into `trade_operations`, matching how the movements statement imports them, so the two dedupe against each other. The rows are parsed by `parseProventosRows()`, which the unit tests call directly.
 - **Negociações** (`parseNegociacaoFileAuto()` picks the format):
   1. **XLSX** (B3 statement): `Data do Negócio`, `Tipo de Movimentação`, `Mercado`, `Prazo/Vencimento`, `Instituição`, `Código de Negociação`, `Quantidade`, `Preço`, `Valor` — parsed by `parseNegociacaoFile()`.
   2. **Simplified CSV**: `Ticker`, `Data`, `Preço un.`, `Qtd`, `Tipo`. Dates in `DD/MM/YYYY` or `DD/MM/YY`.
@@ -232,7 +232,7 @@ Implemented in [xlsx-parser.ts](src/lib/xlsx-parser.ts). Every parser normalizes
 | Dividendo, Juros Sobre Capital Próprio, Rendimento, Reembolso | dividend event (same `event_type` names as the dividends statement, so the two dedupe against each other) |
 | Desdobro | `SPLIT` |
 | Bonificação em Ativos | `BONUS`, whole shares only, zero cost (warning: edit the cost in Negociações) |
-| Amortização, Restituição de Capital | `AMORTIZATION` |
+| Amortização, Restituição de Capital | `AMORTIZATION` (same as the dividends statement) |
 | Resgate | `SELL` |
 | Atualização | not imported, warning (sometimes adds shares, e.g. a fund merger, sometimes restates the position) |
 | Transferência - Liquidação, Transferência, Empréstimo, Fração em Ativos, Leilão de Fração, subscription rights, `* - Transferido`, fixed income (CDB...) | ignored |
