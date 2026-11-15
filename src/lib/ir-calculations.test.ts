@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { calculateGrandTotals, calculateSalesByTaxGroup, type IrTrade } from './ir-calculations';
+import {
+  calculateGrandTotals,
+  calculateRunningPositions,
+  calculateSalesByTaxGroup,
+  getPositionAtDate,
+  getTradeYears,
+  getYearEndSnapshots,
+  type IrTrade,
+} from './ir-calculations';
 
 let nextId = 0;
 const trade = (
@@ -322,5 +330,42 @@ describe('calculateGrandTotals', () => {
 
   it('returns zeros for no months', () => {
     expect(calculateGrandTotals([])).toEqual({ total_sales: 0, total_profit_loss: 0, total_tax_due: 0, total_exempt_profit: 0 });
+  });
+});
+
+describe('Por Ativo helpers', () => {
+  const trades = [
+    trade('PETR4', '2024-03-10', 'BUY', 100, 20),
+    trade('VALE3', '2024-05-10', 'BUY', 10, 60),
+    trade('PETR4', '2024-12-31', 'BUY', 100, 30),
+    trade('PETR4', '2025-02-10', 'SELL', 50, 40),
+    trade('PETR4', '2025-06-10', 'SPLIT', 150, 0),
+  ];
+
+  it('lists the years with matching trades, most recent first', () => {
+    expect(getTradeYears(trades)).toEqual([2025, 2024]);
+    expect(getTradeYears(trades, (t) => t.movement_type === 'SELL')).toEqual([2025]);
+    expect(getTradeYears(trades, (t) => t.ticker === 'VALE3')).toEqual([2024]);
+  });
+
+  it('includes trades made on the snapshot date itself', () => {
+    expect(getPositionAtDate(trades, 'PETR4', '2024-12-30')).toEqual({ quantity: 100, totalValue: 2000, averagePrice: 20 });
+    expect(getPositionAtDate(trades, 'PETR4', '2024-12-31')).toEqual({ quantity: 200, totalValue: 5000, averagePrice: 25 });
+  });
+
+  it('returns the positions at the end of the year and of the previous year', () => {
+    const snapshots = getYearEndSnapshots(trades, 'PETR4', 2025);
+    expect(snapshots.year).toBe(2025);
+    expect(snapshots.previous).toEqual({ quantity: 200, totalValue: 5000, averagePrice: 25 });
+    expect(snapshots.current).toEqual({ quantity: 300, totalValue: 3750, averagePrice: 12.5 });
+    expect(getYearEndSnapshots(trades, 'PETR4', 2024).previous).toEqual({ quantity: 0, totalValue: 0, averagePrice: 0 });
+  });
+
+  it('tracks quantity and average price after each trade of the ticker', () => {
+    const running = calculateRunningPositions([...trades].reverse(), 'PETR4');
+    expect(running.map((t) => t.trade_date)).toEqual(['2024-03-10', '2024-12-31', '2025-02-10', '2025-06-10']);
+    expect(running.map((t) => t.runningQuantity)).toEqual([100, 200, 150, 300]);
+    expect(running.map((t) => t.runningAveragePrice)).toEqual([20, 25, 25, 12.5]);
+    expect(running[3]).toMatchObject({ movement_type: 'SPLIT', quantity: 150, total_value: 0 });
   });
 });

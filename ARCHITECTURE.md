@@ -62,7 +62,7 @@ portfolio-tracker/
     │   └── types.ts            # Generated DB types
     ├── lib/                    # Business logic; each *.ts below has a *.test.ts next to it except where noted
     │   ├── portfolio-calculations.ts  # Cost basis / average price (shared)
-    │   ├── ir-calculations.ts  # IR sales, monthly tax, exemption, accumulated loss
+    │   ├── ir-calculations.ts  # IR sales, monthly tax, exemption, accumulated loss, per-asset history
     │   ├── xlsx-parser.ts      # Proventos and negociações statements → typed rows with per-row errors
     │   ├── b3-movimentacao.ts  # B3 movements statement → dividends + corporate events
     │   ├── import-dedupe.ts    # Skips rows already stored (frequency map)
@@ -352,7 +352,7 @@ Uses `calculatePositions()` (§9.1). Positions are grouped by asset class (Açõ
 
 ### 9.6 Imposto de Renda — [ImpostoRenda.tsx](src/pages/ImpostoRenda.tsx)
 
-Two tabs, both built on the shared cost basis (§9.1). The Tab 1 logic lives in [ir-calculations.ts](src/lib/ir-calculations.ts) (`calculateSalesByTaxGroup`, `calculateGrandTotals`, `TAX_GROUPS`) and is covered by `ir-calculations.test.ts`. The page only fetches data and renders.
+Two tabs, both built on the shared cost basis (§9.1). The logic of both lives in [ir-calculations.ts](src/lib/ir-calculations.ts) (Tab 1: `calculateSalesByTaxGroup`, `calculateGrandTotals`, `TAX_GROUPS`; Tab 2: `getYearEndSnapshots`, `calculateRunningPositions`, `getTradeYears`) and is covered by `ir-calculations.test.ts`. The page only fetches data and renders.
 
 #### Tab 1: "Vendas por Classe" (Sales by Tax Group)
 
@@ -458,5 +458,5 @@ graph LR
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **Form validation** | Forms use raw `useState` without a validation library. |
 | **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |
-| **Test coverage** | Unit tests cover the cost basis, IR sales logic, statement parsers, import deduplication, formatters and pagination. E2E tests (`npm run test:e2e`) cover login and password reset, the three imports with deduplication, positions, dashboard totals, the IR page with the initial loss, and dividend pagination; they run against the hosted Supabase project (no local stack), using a dedicated test account. The IR "Por Ativo" tab and trade editing aren't covered. |
+| **Test coverage** | Unit tests cover the cost basis, IR sales logic and per-asset history, statement parsers, import deduplication, formatters and pagination. E2E tests (`npm run test:e2e`) cover login and password reset, the three imports with deduplication, positions, dashboard totals, the IR page with the initial loss, and dividend pagination; they run against the hosted Supabase project (no local stack), using a dedicated test account. The IR "Por Ativo" tab and trade editing have no E2E test. |
 | **CSV data freshness** | Asset classification CSVs are static snapshots. New listings require manual updates. |

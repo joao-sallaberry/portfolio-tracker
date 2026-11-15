@@ -1,6 +1,12 @@
 import { classifyAsset, type AssetClass } from './asset-classifier';
 import { parseISODateLocal } from './formatters';
-import { applyTradeToCostBasis, EMPTY_COST_BASIS, getAveragePrice, sortTradesByDate } from './portfolio-calculations';
+import {
+  applyTradeToCostBasis,
+  calculateCostBasis,
+  EMPTY_COST_BASIS,
+  getAveragePrice,
+  sortTradesByDate,
+} from './portfolio-calculations';
 
 export type TaxGroup = 'Ações e ETFs' | 'FIIs' | 'Isentos';
 
@@ -223,4 +229,79 @@ export function calculateGrandTotals(months: MonthlyTotals[]): IrGrandTotals {
     }),
     { total_sales: 0, total_profit_loss: 0, total_tax_due: 0, total_exempt_profit: 0 }
   );
+}
+
+/** Quantity and cost of one ticker at a point in time ("Por Ativo" tab). */
+export interface PositionSnapshot {
+  quantity: number;
+  totalValue: number;
+  averagePrice: number;
+}
+
+/** A trade of one ticker with the position right after it. */
+export interface TradeWithRunning {
+  id: string;
+  trade_date: string;
+  movement_type: string;
+  quantity: number;
+  price: number;
+  total_value: number;
+  runningQuantity: number;
+  runningAveragePrice: number;
+}
+
+export interface YearEndSnapshots {
+  year: number;
+  /** Position on December 31 of `year` */
+  current: PositionSnapshot;
+  /** Position on December 31 of the previous year */
+  previous: PositionSnapshot;
+}
+
+/** Years (most recent first) with at least one trade matching `filter`. */
+export function getTradeYears(trades: IrTrade[], filter: (trade: IrTrade) => boolean = () => true): number[] {
+  const years = new Set<number>();
+  for (const trade of trades) {
+    if (!filter(trade)) continue;
+    const date = parseISODateLocal(trade.trade_date);
+    if (date) years.add(date.getFullYear());
+  }
+  return Array.from(years).sort((a, b) => b - a);
+}
+
+/** Position of one ticker after all its trades up to and including `date` (YYYY-MM-DD). */
+export function getPositionAtDate(trades: IrTrade[], ticker: string, date: string): PositionSnapshot {
+  const basis = calculateCostBasis(trades.filter((t) => t.ticker === ticker && t.trade_date <= date));
+  return {
+    quantity: basis.quantity,
+    totalValue: basis.totalCost,
+    averagePrice: getAveragePrice(basis),
+  };
+}
+
+/** Positions of one ticker at the end of `year` and of the year before (the annual declaration's two columns). */
+export function getYearEndSnapshots(trades: IrTrade[], ticker: string, year: number): YearEndSnapshots {
+  return {
+    year,
+    current: getPositionAtDate(trades, ticker, `${year}-12-31`),
+    previous: getPositionAtDate(trades, ticker, `${year - 1}-12-31`),
+  };
+}
+
+/** Trades of one ticker, oldest first, each with the quantity and average price right after it. */
+export function calculateRunningPositions(trades: IrTrade[], ticker: string): TradeWithRunning[] {
+  let basis = EMPTY_COST_BASIS;
+  return sortTradesByDate(trades.filter((t) => t.ticker === ticker)).map((trade) => {
+    basis = applyTradeToCostBasis(basis, trade);
+    return {
+      id: trade.id,
+      trade_date: trade.trade_date,
+      movement_type: trade.movement_type,
+      quantity: Number(trade.quantity),
+      price: Number(trade.price),
+      total_value: Number(trade.total_value),
+      runningQuantity: basis.quantity,
+      runningAveragePrice: getAveragePrice(basis),
+    };
+  });
 }

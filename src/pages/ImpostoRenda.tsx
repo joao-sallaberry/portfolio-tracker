@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useTradeOperations, type TradeOperation } from '@/hooks/use-portfolio-data';
+import { useTradeOperations } from '@/hooks/use-portfolio-data';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -25,49 +25,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
+import { formatDateBR, formatCurrencyBRL, formatNumber } from '@/lib/formatters';
 import {
-  applyTradeToCostBasis,
-  calculateCostBasis,
-  EMPTY_COST_BASIS,
-  getAveragePrice,
-  sortTradesByDate,
-} from '@/lib/portfolio-calculations';
-import { calculateGrandTotals, calculateSalesByTaxGroup, TAX_GROUPS, type TaxGroup } from '@/lib/ir-calculations';
+  calculateGrandTotals,
+  calculateRunningPositions,
+  calculateSalesByTaxGroup,
+  getTradeYears,
+  getYearEndSnapshots,
+  TAX_GROUPS,
+  type TaxGroup,
+} from '@/lib/ir-calculations';
 import { cn } from '@/lib/utils';
 import { Receipt, Calendar, TrendingUp, TrendingDown, Calculator } from 'lucide-react';
-
-interface PositionSnapshot {
-  quantity: number;
-  totalValue: number;
-  averagePrice: number;
-}
-
-interface TradeWithRunning {
-  id: string;
-  trade_date: string;
-  movement_type: string;
-  quantity: number;
-  price: number;
-  total_value: number;
-  runningQuantity: number;
-  runningAveragePrice: number;
-}
-
-// Position of one ticker after all its trades up to and including endDate
-function getPositionAtDate(trades: TradeOperation[], ticker: string, endDate: Date): PositionSnapshot {
-  const tickerTrades = trades.filter((t) => {
-    const tradeDate = parseISODateLocal(t.trade_date);
-    return t.ticker === ticker && tradeDate && tradeDate <= endDate;
-  });
-  const basis = calculateCostBasis(tickerTrades);
-
-  return {
-    quantity: basis.quantity,
-    totalValue: basis.totalCost,
-    averagePrice: getAveragePrice(basis),
-  };
-}
 
 export default function ImpostoRenda() {
   const [selectedTicker, setSelectedTicker] = useState<string>('');
@@ -143,72 +112,27 @@ export default function ImpostoRenda() {
 
   const { data: trades, isLoading } = useTradeOperations();
 
-  // Get unique tickers sorted alphabetically
-  const tickers = useMemo(() => {
-    if (!trades) return [];
-    const uniqueTickers = [...new Set(trades.map((t) => t.ticker))];
-    return uniqueTickers.sort();
-  }, [trades]);
+  const tickers = useMemo(() => [...new Set((trades ?? []).map((t) => t.ticker))].sort(), [trades]);
 
-  // Get available years from trades
-  const availableYears = useMemo(() => {
-    if (!trades || !selectedTicker) return [];
-    const tickerTrades = trades.filter((t) => t.ticker === selectedTicker);
-    const years = new Set(tickerTrades.map((t) => {
-      const date = parseISODateLocal(t.trade_date);
-      return date ? date.getFullYear() : new Date().getFullYear();
-    }));
-    return Array.from(years).sort((a, b) => b - a);
-  }, [trades, selectedTicker]);
+  const availableYears = useMemo(
+    () => (selectedTicker ? getTradeYears(trades ?? [], (t) => t.ticker === selectedTicker) : []),
+    [trades, selectedTicker],
+  );
 
-  // Get available years for sales by asset class
-  const availableSalesYears = useMemo(() => {
-    if (!trades) return [];
-    const sales = trades.filter((t) => t.movement_type === 'SELL');
-    const years = new Set(sales.map((t) => {
-      const date = parseISODateLocal(t.trade_date);
-      return date ? date.getFullYear() : new Date().getFullYear();
-    }));
-    return Array.from(years).sort((a, b) => b - a);
-  }, [trades]);
+  const availableSalesYears = useMemo(
+    () => getTradeYears(trades ?? [], (t) => t.movement_type === 'SELL'),
+    [trades],
+  );
 
-  // Position snapshots for selected year and previous year
-  const yearSnapshots = useMemo(() => {
-    if (!selectedYear || !selectedTicker) return null;
+  const yearSnapshots = useMemo(
+    () => (selectedYear && selectedTicker ? getYearEndSnapshots(trades ?? [], selectedTicker, parseInt(selectedYear)) : null),
+    [selectedYear, selectedTicker, trades],
+  );
 
-    const year = parseInt(selectedYear);
-    const endOfYear = new Date(year, 11, 31, 23, 59, 59);
-    const endOfPrevYear = new Date(year - 1, 11, 31, 23, 59, 59);
-
-    return {
-      current: getPositionAtDate(trades ?? [], selectedTicker, endOfYear),
-      previous: getPositionAtDate(trades ?? [], selectedTicker, endOfPrevYear),
-      currentYear: year,
-      previousYear: year - 1,
-    };
-  }, [selectedYear, selectedTicker, trades]);
-
-  // Calculate running quantity and average price for selected ticker
-  const tradesWithRunning = useMemo(() => {
-    if (!trades || !selectedTicker) return [];
-
-    let basis = EMPTY_COST_BASIS;
-
-    return sortTradesByDate(trades.filter((t) => t.ticker === selectedTicker)).map((trade): TradeWithRunning => {
-      basis = applyTradeToCostBasis(basis, trade);
-
-      return {
-        id: trade.id,
-        trade_date: trade.trade_date,
-        movement_type: trade.movement_type,
-        quantity: Number(trade.quantity),
-        price: Number(trade.price),
-        total_value: Number(trade.total_value),
-        runningQuantity: basis.quantity,
-        runningAveragePrice: getAveragePrice(basis),
-      };
-    });
-  }, [trades, selectedTicker]);
+  const tradesWithRunning = useMemo(
+    () => (selectedTicker ? calculateRunningPositions(trades ?? [], selectedTicker) : []),
+    [trades, selectedTicker],
+  );
 
   // Get the selected tax group config
   const selectedGroupConfig = useMemo(() => {
@@ -528,7 +452,7 @@ export default function ImpostoRenda() {
                     <Card className="bg-muted/50">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-base font-medium">
-                          31/12/{yearSnapshots.previousYear}
+                          31/12/{yearSnapshots.year - 1}
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2">
@@ -550,7 +474,7 @@ export default function ImpostoRenda() {
                     <Card className="bg-muted/50">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-base font-medium">
-                          31/12/{yearSnapshots.currentYear}
+                          31/12/{yearSnapshots.year}
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2">
