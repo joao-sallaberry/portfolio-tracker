@@ -73,7 +73,7 @@ portfolio-tracker/
     │   ├── auth-recovery.ts    # Catches password-recovery links before the router loads (no tests)
     │   └── utils.ts            # `cn()` helper (clsx + tailwind-merge)
     ├── data/                   # Known tickers per asset class (CSV)
-    ├── hooks/                  # use-portfolio-data (shared queries), use-pagination, use-mobile, use-toast
+    ├── hooks/                  # use-portfolio-data (shared queries), use-portfolio-mutations (every write), use-pagination, use-mobile, use-toast
     ├── components/
     │   ├── layout/             # AppLayout (sidebar + header), AppSidebar
     │   ├── import/             # FileUploadCard, PreviewTable, MovimentacaoPreview
@@ -247,11 +247,11 @@ The movements statement has its own [MovimentacaoPreview](src/components/import/
 
 ### 7.3 Insertion
 
-Valid rows are mapped to DB columns (dates as local `YYYY-MM-DD` via `formatISODateLocal`), tagged with `user_id`, deduplicated (§7.4) and inserted in a single `insert()` call (`insertNewDividends` / `insertNewTrades` in Import.tsx, shared by every import flow).
+Valid rows are mapped to DB columns (dates as local `YYYY-MM-DD` via `formatISODateLocal`), tagged with `user_id`, deduplicated (§7.4) and inserted in a single `insert()` call (`useImportRows()` in [use-portfolio-mutations.ts](src/hooks/use-portfolio-mutations.ts), shared by every import flow; it refreshes the tables that received rows).
 
 ### 7.4 Deduplication Logic
 
-Before inserting, the page fetches **all existing records** for the user (`fetchAllDividendEvents` / `fetchAllTradeOperations`, paginated) and builds a frequency map keyed on:
+Before inserting, `useImportRows()` fetches **all existing records** for the user (`fetchAllDividendEvents` / `fetchAllTradeOperations`, paginated) and builds a frequency map keyed on:
 
 - proventos: `ticker-payment_date-event_type-quantity-net_value`
 - negociações: `trade_date-movement_type-ticker-quantity-total_value`
@@ -260,7 +260,7 @@ Each incoming row "consumes" one existing match; only rows beyond the existing c
 
 ### 7.5 Data Clearing
 
-Two "clear history" buttons delete all rows from `dividend_events` or `trade_operations` for the current user (via `.delete().neq('id', '00000000-...')` — Supabase requires a filter on delete).
+Two "clear history" buttons delete all rows from `dividend_events` or `trade_operations` for the current user (`useClearTable()`, via `.delete().neq('id', '00000000-...')` — Supabase requires a filter on delete).
 
 ---
 
@@ -336,7 +336,7 @@ The filtering, sorting, totals and chart data of this page and Proventos (§9.4)
 - Paginated table (50 items/page). Both browsers use the shared `usePagination` hook (back to page 1 when filters or sorting change) and `PaginationControls` component.
 - Filters: start/end date (native date inputs), movement type, ticker, asset class.
 - Summary cards: Total Compras (`BUY` + `BONUS`), Total Vendas (`SELL` + `AMORTIZATION`), operation count.
-- **Edit dialog**: changes date, type (also updates `movement_type_raw`), ticker (normalized with `normalizeTicker()`), institution, quantity, price and total value through a `useMutation` that invalidates `['trade-operations']`.
+- **Edit dialog**: changes date, type (also updates `movement_type_raw`), ticker (normalized with `normalizeTicker()`), institution, quantity, price and total value through `useUpdateTrade()`, which invalidates `TRADE_OPERATIONS_KEY`.
 - **"Excluir do IR" switch** on `SELL` rows toggles `exclude_from_ir`.
 
 ### 9.4 Proventos — [Proventos.tsx](src/pages/Proventos.tsx)
@@ -413,17 +413,18 @@ Colors are CSS custom properties in [index.css](src/index.css) (an emerald palet
 graph LR
     A[Statement XLSX / CSV] --> B[xlsx-parser.ts / b3-movimentacao.ts]
     B -->|rows + warnings| C[PreviewTable / MovimentacaoPreview]
-    C -->|user confirms| D[Import.tsx]
+    C -->|user confirms| D[use-portfolio-mutations.ts]
     D -->|rowsToInsert| DD[import-dedupe.ts]
     DD -->|insert| E[(Supabase Postgres)]
     E -->|use-portfolio-data, all rows| F[Pages]
-    F -->|edits, invalidate cache| E
+    F -->|edits| D
+    D -->|write, invalidate cache| E
     F --> P[portfolio-calculations.ts]
     P --> IR[ir-calculations.ts]
     F --> G[asset-classifier.ts]
 ```
 
-**Key pattern:** pages read data through [use-portfolio-data.ts](src/hooks/use-portfolio-data.ts): `useTradeOperations()` and `useDividendEvents()` fetch the user's full dataset (oldest first) under the shared query keys `TRADE_OPERATIONS_KEY` / `DIVIDEND_EVENTS_KEY`, so every page uses the same cache. They page through PostgREST's 1000-row limit with `fetchAllPages()`, ordering by date **and `id`** so rows don't repeat or go missing between pages. Pages filter and aggregate in memory; mutations and imports invalidate those keys.
+**Key pattern:** pages read data through [use-portfolio-data.ts](src/hooks/use-portfolio-data.ts): `useTradeOperations()` and `useDividendEvents()` fetch the user's full dataset (oldest first) under the shared query keys `TRADE_OPERATIONS_KEY` / `DIVIDEND_EVENTS_KEY`, so every page uses the same cache. They page through PostgREST's 1000-row limit with `fetchAllPages()`, ordering by date **and `id`** so rows don't repeat or go missing between pages. Pages filter and aggregate in memory. Every write (imports, clearing, trade edits, the IR initial loss) goes through a mutation hook in [use-portfolio-mutations.ts](src/hooks/use-portfolio-mutations.ts) that invalidates the keys it changes; pages don't call `supabase.from()` themselves.
 
 ---
 

@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTradeOperations } from '@/hooks/use-portfolio-data';
-import { supabase } from '@/integrations/supabase/client';
+import { initialLossKey, useInitialLosses, useSaveInitialLoss } from '@/hooks/use-portfolio-mutations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -44,50 +43,14 @@ export default function ImpostoRenda() {
   const [selectedTaxGroup, setSelectedTaxGroup] = useState<TaxGroup>('Ações e ETFs');
   const [selectedSalesYear, setSelectedSalesYear] = useState<string>(new Date().getFullYear().toString());
 
-  // Initial accumulated loss per tax group and year, stored in ir_initial_losses
-  const queryClient = useQueryClient();
   // Text being typed in the initial loss input; null shows the stored value
   const [initialLossDraft, setInitialLossDraft] = useState<string | null>(null);
 
-  const getInitialLossKey = (group: string, year: string | number) => `${group}-${year}`;
+  // Initial accumulated loss per tax group and year, stored in ir_initial_losses
+  const { data: initialLosses = {} } = useInitialLosses();
+  const saveInitialLoss = useSaveInitialLoss();
 
-  const { data: initialLosses = {} } = useQuery({
-    queryKey: ['ir-initial-losses'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('ir_initial_losses').select('tax_group, year, amount');
-      if (error) throw error;
-      return Object.fromEntries(
-        data.map((row) => [getInitialLossKey(row.tax_group, row.year), Number(row.amount)])
-      ) as Record<string, number>;
-    },
-  });
-
-  const saveInitialLoss = useMutation({
-    mutationFn: async ({ group, year, amount }: { group: TaxGroup; year: string; amount: number }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
-      const { error } = await supabase.from('ir_initial_losses').upsert(
-        { user_id: user.id, tax_group: group, year: parseInt(year), amount, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id,tax_group,year' },
-      );
-      if (error) throw error;
-    },
-    // Update the cache right away so the calculation doesn't wait for the round trip
-    onMutate: ({ group, year, amount }) => {
-      queryClient.setQueryData<Record<string, number>>(['ir-initial-losses'], (prev) => ({
-        ...prev,
-        [getInitialLossKey(group, year)]: amount,
-      }));
-    },
-    onError: (error: Error) => {
-      toast.error(`Erro ao salvar prejuízo acumulado: ${error.message}`);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['ir-initial-losses'] });
-    },
-  });
-
-  const initialAccumulatedLoss = initialLosses[getInitialLossKey(selectedTaxGroup, selectedSalesYear)] ?? 0;
+  const initialAccumulatedLoss = initialLosses[initialLossKey(selectedTaxGroup, selectedSalesYear)] ?? 0;
 
   const initialLossInputValue =
     initialLossDraft ?? (initialAccumulatedLoss === 0 ? '' : formatCurrencyBRL(Math.abs(initialAccumulatedLoss)));
@@ -106,7 +69,10 @@ export default function ImpostoRenda() {
     setInitialLossDraft(null);
 
     if (lossValue !== initialAccumulatedLoss) {
-      saveInitialLoss.mutate({ group: selectedTaxGroup, year: selectedSalesYear, amount: lossValue });
+      saveInitialLoss.mutate(
+        { group: selectedTaxGroup, year: parseInt(selectedSalesYear), amount: lossValue },
+        { onError: (error) => toast.error(`Erro ao salvar prejuízo acumulado: ${error.message}`) },
+      );
     }
   };
 

@@ -1,14 +1,13 @@
 import { useState, useMemo } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { TRADE_OPERATIONS_KEY, useTradeOperations, type TradeOperation } from '@/hooks/use-portfolio-data';
+import { useTradeOperations, type TradeOperation } from '@/hooks/use-portfolio-data';
+import { useUpdateTrade } from '@/hooks/use-portfolio-mutations';
 import { usePagination } from '@/hooks/use-pagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDateBR, formatCurrencyBRL, formatNumber, normalizeTicker } from '@/lib/formatters';
+import { formatDateBR, formatCurrencyBRL, formatNumber } from '@/lib/formatters';
 import { classifyAsset } from '@/lib/asset-classifier';
 import { ALL, filterTrades, sumTradeTotals, uniqueSorted } from '@/lib/list-filters';
 import { Switch } from '@/components/ui/switch';
@@ -32,7 +31,6 @@ type EditableTrade = Omit<TradeOperation, 'quantity' | 'price' | 'total_value'> 
 };
 
 export default function Negociacoes() {
-  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
@@ -45,57 +43,48 @@ export default function Negociacoes() {
   // Newest first for display
   const trades = useMemo(() => (tradesAsc ? [...tradesAsc].reverse() : undefined), [tradesAsc]);
 
-  const toggleExcludeFromIr = useMutation({
-    mutationFn: async ({ id, exclude_from_ir }: { id: string; exclude_from_ir: boolean }) => {
-      const { error } = await supabase.from('trade_operations').update({ exclude_from_ir }).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: TRADE_OPERATIONS_KEY });
-    },
-  });
+  const toggleExcludeFromIr = useUpdateTrade();
+  const updateTrade = useUpdateTrade();
 
-  const updateTrade = useMutation({
-    mutationFn: async (updatedTrade: EditableTrade) => {
-      const { id, trade_date, movement_type, movement_type_raw, ticker, institution, quantity, price, total_value } = updatedTrade;
-      const toNumber = (value: number | string, invalidMessage: string) => {
-        const n = typeof value === 'number' ? value : Number(value);
-        if (value === '' || !Number.isFinite(n)) throw new Error(invalidMessage);
-        return n;
-      };
-      const payload = {
-        trade_date,
-        movement_type,
-        movement_type_raw,
-        ticker: normalizeTicker(ticker),
-        institution,
-        quantity: toNumber(quantity, 'Quantidade inválida.'),
-        price: toNumber(price, 'Preço inválido.'),
-        total_value: toNumber(total_value, 'Valor total inválido.'),
-      };
-      const { error } = await supabase.from('trade_operations').update(payload).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: TRADE_OPERATIONS_KEY });
-      toast({
-        title: "Negociação atualizada",
-        description: "A negociação foi salva com sucesso.",
-      });
-      setEditingTrade(null);
-    },
-    onError: (error: Error) => {
+  // null when the text typed isn't a number
+  const parseNumberInput = (value: number | string) => {
+    if (typeof value === 'number') return value;
+    const n = Number(value);
+    return value === '' || !Number.isFinite(n) ? null : n;
+  };
+
+  const saveEditingTrade = (trade: EditableTrade) => {
+    const onError = (message: string) => {
       toast({
         title: "Erro",
-        description: `Não foi possível atualizar a negociação. ${error.message}`,
+        description: `Não foi possível atualizar a negociação. ${message}`,
         variant: "destructive",
       });
-    }
-  });
+    };
+    const { id, trade_date, movement_type, movement_type_raw, ticker, institution } = trade;
+    const quantity = parseNumberInput(trade.quantity);
+    const price = parseNumberInput(trade.price);
+    const total_value = parseNumberInput(trade.total_value);
+    if (quantity === null) return onError('Quantidade inválida.');
+    if (price === null) return onError('Preço inválido.');
+    if (total_value === null) return onError('Valor total inválido.');
+
+    const changes = { trade_date, movement_type, movement_type_raw, ticker, institution, quantity, price, total_value };
+    updateTrade.mutate({ id, changes }, {
+      onSuccess: () => {
+        toast({
+          title: "Negociação atualizada",
+          description: "A negociação foi salva com sucesso.",
+        });
+        setEditingTrade(null);
+      },
+      onError: (error) => onError(error.message),
+    });
+  };
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingTrade) updateTrade.mutate(editingTrade);
+    if (editingTrade) saveEditingTrade(editingTrade);
   };
 
   const uniqueTickers = useMemo(() => uniqueSorted((trades ?? []).map((t) => t.ticker)), [trades]);
@@ -324,7 +313,7 @@ export default function Negociacoes() {
                                     checked={Boolean(trade.exclude_from_ir)}
                                     disabled={toggleExcludeFromIr.isPending}
                                     onCheckedChange={(checked) =>
-                                      toggleExcludeFromIr.mutate({ id: trade.id, exclude_from_ir: checked })
+                                      toggleExcludeFromIr.mutate({ id: trade.id, changes: { exclude_from_ir: checked } })
                                     }
                                     aria-label="Excluir venda do cálculo de Imposto de Renda"
                                     className={cn(
