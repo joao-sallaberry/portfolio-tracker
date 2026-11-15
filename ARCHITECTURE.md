@@ -77,6 +77,7 @@ portfolio-tracker/
     ├── components/
     │   ├── layout/             # AppLayout (sidebar + header), AppSidebar
     │   ├── import/             # FileUploadCard, PreviewTable, MovimentacaoPreview
+    │   ├── ErrorBoundary.tsx   # Recovery screen when rendering throws
     │   ├── PaginationControls.tsx
     │   └── ui/                 # shadcn/ui components (not modified, except chart.tsx)
     └── pages/
@@ -189,7 +190,7 @@ Implemented in [Auth.tsx](src/pages/Auth.tsx).
 | `/configuracoes` | `Configuracoes` | User settings |
 | `*` | `NotFound` | 404 fallback |
 
-Pages are loaded on demand with `React.lazy` (a skeleton shows while a page's chunk downloads), so SheetJS ships only with Import and Recharts only with the chart pages. All routes except `/auth` are wrapped in [AppLayout](src/components/layout/AppLayout.tsx) (collapsible sidebar + header). Navigation items are defined in [AppSidebar.tsx](src/components/layout/AppSidebar.tsx).
+Pages are loaded on demand with `React.lazy` (a skeleton shows while a page's chunk downloads), so SheetJS ships only with Import and Recharts only with the chart pages. All routes except `/auth` are wrapped in [AppLayout](src/components/layout/AppLayout.tsx) (collapsible sidebar + header). Navigation items are defined in [AppSidebar.tsx](src/components/layout/AppSidebar.tsx). An [ErrorBoundary](src/components/ErrorBoundary.tsx) around the page content shows a recovery screen when a page throws while rendering, keeping the sidebar usable; it resets on navigation. A second one around the whole app catches the rest. A lazy page chunk that fails to load (the app was redeployed while open) gets a message asking to reload.
 
 ---
 
@@ -461,6 +462,6 @@ graph LR
 | **Tax computation** | No distinction between day-trade (20%) and swing-trade (15%). The R$20k exemption applies to `Ação` sales only. The loss carried into a year is not derived from previous years; the user enters it as the initial accumulated loss. |
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **Form validation** | Forms use raw `useState` without a validation library. |
-| **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |
+| **Error handling** | Supabase errors are shown via toasts; render errors by the error boundaries (§6). Query failures (`useQuery` errors) don't reach the boundaries, and pages mostly show them as empty data. |
 | **Test coverage** | Unit tests cover the cost basis, IR sales logic and per-asset history, the Negociações/Proventos filters, statement parsers, import deduplication, formatters and pagination. E2E tests (`npm run test:e2e`) cover login and password reset, the three imports with deduplication, positions, dashboard totals, the IR page with the initial loss, and dividend pagination; they run against the hosted Supabase project (no local stack), using a dedicated test account. The IR "Por Ativo" tab and trade editing have no E2E test. |
 | **CSV data freshness** | Asset classification CSVs are static snapshots. New listings require manual updates. |

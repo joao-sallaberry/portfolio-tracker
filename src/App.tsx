@@ -2,13 +2,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { openedFromRecoveryLink } from "@/lib/auth-recovery";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Pages are loaded on demand so heavy dependencies (SheetJS, Recharts) only ship with the pages that use them
 const Auth = lazy(() => import("./pages/Auth"));
@@ -28,6 +29,12 @@ const PageFallback = () => (
     <Skeleton className="h-64 w-full" />
   </div>
 );
+
+// Keeps the sidebar usable when a page fails; navigating to another page clears the error
+const PageErrorBoundary = ({ children }: { children: ReactNode }) => {
+  const { pathname } = useLocation();
+  return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>;
+};
 
 const queryClient = new QueryClient();
 
@@ -60,51 +67,55 @@ const App = () => {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Suspense fallback={<PageFallback />}>
-            <Routes>
-              <Route path="/auth" element={!session ? <Auth /> : <Navigate to="/" replace />} />
-              {/* Reached from the reset email (which signs the user in), with or without a session */}
-              <Route
-                path="/redefinir-senha"
-                element={<ResetPassword session={session} onPasswordUpdated={() => setPasswordRecovery(false)} />}
-              />
+    <ErrorBoundary fullScreen>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
+                <Route path="/auth" element={!session ? <Auth /> : <Navigate to="/" replace />} />
+                {/* Reached from the reset email (which signs the user in), with or without a session */}
+                <Route
+                  path="/redefinir-senha"
+                  element={<ResetPassword session={session} onPasswordUpdated={() => setPasswordRecovery(false)} />}
+                />
 
-              {/* Protected Routes */}
-              <Route
-                path="/*"
-                element={
-                  passwordRecovery ? (
-                    <Navigate to="/redefinir-senha" replace />
-                  ) : session ? (
-                    <AppLayout>
-                      <Suspense fallback={<PageFallback />}>
-                        <Routes>
-                          <Route path="/" element={<Index />} />
-                          <Route path="/importar" element={<Import />} />
-                          <Route path="/negociacoes" element={<Negociacoes />} />
-                          <Route path="/proventos" element={<Proventos />} />
-                          <Route path="/posicao" element={<Posicao />} />
-                          <Route path="/imposto-renda" element={<ImpostoRenda />} />
-                          <Route path="/configuracoes" element={<Configuracoes />} />
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                      </Suspense>
-                    </AppLayout>
-                  ) : (
-                    <Navigate to="/auth" replace />
-                  )
-                }
-              />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+                {/* Protected Routes */}
+                <Route
+                  path="/*"
+                  element={
+                    passwordRecovery ? (
+                      <Navigate to="/redefinir-senha" replace />
+                    ) : session ? (
+                      <AppLayout>
+                        <PageErrorBoundary>
+                          <Suspense fallback={<PageFallback />}>
+                            <Routes>
+                              <Route path="/" element={<Index />} />
+                              <Route path="/importar" element={<Import />} />
+                              <Route path="/negociacoes" element={<Negociacoes />} />
+                              <Route path="/proventos" element={<Proventos />} />
+                              <Route path="/posicao" element={<Posicao />} />
+                              <Route path="/imposto-renda" element={<ImpostoRenda />} />
+                              <Route path="/configuracoes" element={<Configuracoes />} />
+                              <Route path="*" element={<NotFound />} />
+                            </Routes>
+                          </Suspense>
+                        </PageErrorBoundary>
+                      </AppLayout>
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 
