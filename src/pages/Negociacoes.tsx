@@ -8,8 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal, normalizeTicker } from '@/lib/formatters';
-import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
+import { formatDateBR, formatCurrencyBRL, formatNumber, normalizeTicker } from '@/lib/formatters';
+import { classifyAsset } from '@/lib/asset-classifier';
+import { ALL, filterTrades, sumTradeTotals, uniqueSorted } from '@/lib/list-filters';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -97,47 +98,14 @@ export default function Negociacoes() {
     if (editingTrade) updateTrade.mutate(editingTrade);
   };
 
-  // Extract unique values for filters
-  const uniqueTickers = useMemo(() => {
-    if (!trades) return [];
-    return [...new Set(trades.map(t => t.ticker))].sort();
-  }, [trades]);
+  const uniqueTickers = useMemo(() => uniqueSorted((trades ?? []).map((t) => t.ticker)), [trades]);
+  const uniqueTypes = useMemo(() => uniqueSorted((trades ?? []).map((t) => t.movement_type)), [trades]);
+  const uniqueClasses = useMemo(() => uniqueSorted((trades ?? []).map((t) => classifyAsset(t.ticker))), [trades]);
 
-  const uniqueTypes = useMemo(() => {
-    if (!trades) return [];
-    return [...new Set(trades.map(t => t.movement_type))].sort();
-  }, [trades]);
-
-  const uniqueClasses = useMemo(() => {
-    if (!trades) return [];
-    const classes = trades.map(t => classifyAsset(t.ticker));
-    return [...new Set(classes)].sort() as AssetClass[];
-  }, [trades]);
-
-  const filteredTrades = useMemo(() => {
-    if (!trades) return [];
-
-    return trades.filter(t => {
-      const tradeDate = parseISODateLocal(t.trade_date) ?? new Date(t.trade_date);
-
-      // Start date filter
-      if (startDate && tradeDate < startDate) return false;
-
-      // End date filter
-      if (endDate && tradeDate > endDate) return false;
-
-      // Type filter
-      if (typeFilter !== 'all' && t.movement_type !== typeFilter) return false;
-
-      // Ticker filter
-      if (tickerFilter !== 'all' && t.ticker !== tickerFilter) return false;
-
-      // Class filter
-      if (classFilter !== 'all' && classifyAsset(t.ticker) !== classFilter) return false;
-
-      return true;
-    });
-  }, [trades, startDate, endDate, typeFilter, tickerFilter, classFilter]);
+  const filteredTrades = useMemo(
+    () => filterTrades(trades ?? [], { startDate, endDate, movementType: typeFilter, ticker: tickerFilter, assetClass: classFilter }),
+    [trades, startDate, endDate, typeFilter, tickerFilter, classFilter],
+  );
 
   // Back to page 1 whenever the filters change
   const { currentPage, setCurrentPage, pageItems: paginatedTrades } = usePagination(
@@ -146,10 +114,9 @@ export default function Negociacoes() {
     JSON.stringify([startDate, endDate, typeFilter, tickerFilter, classFilter])
   );
 
-  const totalBuys = filteredTrades.filter(t => t.movement_type === 'BUY' || t.movement_type === 'BONUS').reduce((sum, t) => sum + Number(t.total_value), 0);
-  const totalSells = filteredTrades.filter(t => t.movement_type === 'SELL' || t.movement_type === 'AMORTIZATION').reduce((sum, t) => sum + Number(t.total_value), 0);
+  const { buys: totalBuys, sells: totalSells } = sumTradeTotals(filteredTrades);
 
-  const hasActiveFilters = startDate || endDate || typeFilter !== 'all' || tickerFilter !== 'all' || classFilter !== 'all';
+  const hasActiveFilters = startDate || endDate || typeFilter !== ALL || tickerFilter !== ALL || classFilter !== ALL;
 
   const clearFilters = () => {
     setStartDate(undefined);

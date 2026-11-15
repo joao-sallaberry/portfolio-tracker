@@ -9,18 +9,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
-import { classifyAsset, AssetClass } from '@/lib/asset-classifier';
+import { formatDateBR, formatCurrencyBRL, formatNumber } from '@/lib/formatters';
+import { ASSET_CLASSES, classifyAsset, type AssetClass } from '@/lib/asset-classifier';
+import {
+  ALL,
+  filterDividends,
+  getDatePresetRange,
+  monthlyDividendsByAssetClass,
+  nextSortConfig,
+  sortDividends,
+  sumNetValue,
+  uniqueSorted,
+  type DatePreset,
+  type DividendSortKey,
+  type SortConfig,
+} from '@/lib/list-filters';
 import { Wallet, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { PaginationControls } from '@/components/PaginationControls';
 
 const ITEMS_PER_PAGE = 50;
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis } from 'recharts';
 
-const ASSET_CLASSES: AssetClass[] = ['Ação', 'FII', 'ETF', 'FI-Infra', 'FIP', 'Outro'];
 
 const CHART_COLORS: Record<AssetClass, string> = {
   'Ação': 'hsl(160 84% 39%)',
@@ -31,86 +42,50 @@ const CHART_COLORS: Record<AssetClass, string> = {
   'Outro': 'hsl(38 92% 50%)',
 };
 
+interface SortableHeadProps {
+  label: string;
+  sortKey: DividendSortKey;
+  sort: SortConfig<DividendSortKey> | null;
+  onSort: (key: DividendSortKey) => void;
+  align?: 'left' | 'right';
+}
+
+function SortableHead({ label, sortKey, sort, onSort, align = 'left' }: SortableHeadProps) {
+  const Icon = sort?.key !== sortKey ? ArrowUpDown : sort.direction === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <TableHead className={cn('cursor-pointer hover:bg-muted/50', align === 'right' && 'text-right')} onClick={() => onSort(sortKey)}>
+      <div className={cn('flex items-center gap-1', align === 'right' && 'justify-end')}>
+        {label} <Icon className={cn('h-4 w-4', sort?.key !== sortKey && 'opacity-50')} />
+      </div>
+    </TableHead>
+  );
+}
+
 export default function Proventos() {
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
-  const [datePreset, setDatePreset] = useState<string>('all');
+  const [datePreset, setDatePreset] = useState<DatePreset | 'custom'>('all');
   const [eventType, setEventType] = useState<string>('all');
   const [assetClass, setAssetClass] = useState<string>('all');
   const [tickerFilter, setTickerFilter] = useState<string>('all');
   const [chartAssetClasses, setChartAssetClasses] = useState<AssetClass[]>([...ASSET_CLASSES]);
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [sortConfig, setSortConfig] = useState<SortConfig<DividendSortKey> | null>(null);
 
   const { data: dividendsAsc, isLoading } = useDividendEvents();
   // Newest first for display
   const dividends = useMemo(() => (dividendsAsc ? [...dividendsAsc].reverse() : undefined), [dividendsAsc]);
 
-  // Get unique event types for the filter
-  const eventTypes = useMemo(() => {
-    return [...new Set(dividends?.map(d => d.event_type) || [])].sort();
-  }, [dividends]);
+  const eventTypes = useMemo(() => uniqueSorted((dividends ?? []).map((d) => d.event_type)), [dividends]);
+  const uniqueTickers = useMemo(() => uniqueSorted((dividends ?? []).map((d) => d.ticker)), [dividends]);
 
-  // Get unique tickers for the filter
-  const uniqueTickers = useMemo(() => {
-    return [...new Set(dividends?.map(d => d.ticker) || [])].sort();
-  }, [dividends]);
+  const filteredDividends = useMemo(
+    () => filterDividends(dividends ?? [], { startDate, endDate, eventType, assetClass, ticker: tickerFilter }),
+    [dividends, startDate, endDate, eventType, assetClass, tickerFilter],
+  );
 
-  // Filter dividends based on selected filters
-  const filteredDividends = useMemo(() => {
-    if (!dividends) return [];
+  const handleSort = (key: DividendSortKey) => setSortConfig((current) => nextSortConfig(current, key));
 
-    return dividends.filter(d => {
-      const paymentDate = parseISODateLocal(d.payment_date) ?? new Date(d.payment_date);
-
-      // Date range filter
-      if (startDate && paymentDate < startDate) return false;
-      if (endDate && paymentDate > endDate) return false;
-
-      // Event type filter
-      if (eventType !== 'all' && d.event_type !== eventType) return false;
-
-      // Asset class filter
-      if (assetClass !== 'all' && classifyAsset(d.ticker) !== assetClass) return false;
-
-      // Ticker filter
-      if (tickerFilter !== 'all' && d.ticker !== tickerFilter) return false;
-
-      return true;
-    });
-  }, [dividends, startDate, endDate, eventType, assetClass, tickerFilter]);
-
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedDividends = useMemo(() => {
-    if (!sortConfig) return filteredDividends;
-
-    return [...filteredDividends].sort((a, b) => {
-      let aValue: string | number = a[sortConfig.key as keyof typeof a];
-      let bValue: string | number = b[sortConfig.key as keyof typeof b];
-
-      // Custom values for sorting
-      if (sortConfig.key === 'assetClass') {
-        aValue = classifyAsset(a.ticker);
-        bValue = classifyAsset(b.ticker);
-      } else if (sortConfig.key === 'payment_date') {
-        aValue = new Date(a.payment_date).getTime();
-        bValue = new Date(b.payment_date).getTime();
-      } else if (['quantity', 'unit_price', 'net_value'].includes(sortConfig.key)) {
-        aValue = Number(aValue);
-        bValue = Number(bValue);
-      }
-
-      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [filteredDividends, sortConfig]);
+  const sortedDividends = useMemo(() => sortDividends(filteredDividends, sortConfig), [filteredDividends, sortConfig]);
 
   // Back to page 1 whenever the filters or the sorting change
   const { currentPage, setCurrentPage, pageItems: paginatedDividends } = usePagination(
@@ -119,13 +94,11 @@ export default function Proventos() {
     JSON.stringify([startDate, endDate, eventType, assetClass, tickerFilter, sortConfig])
   );
 
-  const totalDividends = filteredDividends.reduce((sum, d) => sum + Number(d.net_value), 0);
+  const totalDividends = sumNetValue(filteredDividends);
   const currentYear = new Date().getFullYear();
-  const dividendsThisYear = filteredDividends
-    .filter(d => (parseISODateLocal(d.payment_date) ?? new Date(d.payment_date)).getFullYear() === currentYear)
-    .reduce((sum, d) => sum + Number(d.net_value), 0);
+  const dividendsThisYear = sumNetValue(filteredDividends, currentYear);
 
-  const hasActiveFilters = startDate || endDate || eventType !== 'all' || assetClass !== 'all' || tickerFilter !== 'all';
+  const hasActiveFilters = startDate || endDate || eventType !== ALL || assetClass !== ALL || tickerFilter !== ALL;
 
   const clearFilters = () => {
     setStartDate(undefined);
@@ -136,45 +109,11 @@ export default function Proventos() {
     setTickerFilter('all');
   };
 
-  const handleDatePresetChange = (preset: string) => {
+  const handleDatePresetChange = (preset: DatePreset) => {
     setDatePreset(preset);
-    const now = new Date();
-    switch (preset) {
-      case 'all':
-        setStartDate(undefined);
-        setEndDate(undefined);
-        break;
-      case 'current_month':
-        setStartDate(new Date(now.getFullYear(), now.getMonth(), 1));
-        setEndDate(new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59));
-        break;
-      case 'last_month':
-        setStartDate(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-        setEndDate(new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59));
-        break;
-      case 'current_year':
-        setStartDate(new Date(now.getFullYear(), 0, 1));
-        setEndDate(new Date(now.getFullYear(), 11, 31, 23, 59, 59));
-        break;
-      case 'last_year':
-        setStartDate(new Date(now.getFullYear() - 1, 0, 1));
-        setEndDate(new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59));
-        break;
-      case 'past_year': {
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(now.getFullYear() - 1);
-        setStartDate(oneYearAgo);
-        setEndDate(now);
-        break;
-      }
-      case 'past_5_years': {
-        const fiveYearsAgo = new Date();
-        fiveYearsAgo.setFullYear(now.getFullYear() - 5);
-        setStartDate(fiveYearsAgo);
-        setEndDate(now);
-        break;
-      }
-    }
+    const range = getDatePresetRange(preset);
+    setStartDate(range.startDate);
+    setEndDate(range.endDate);
   };
 
   const handleStartDateChange = (date: Date | undefined) => {
@@ -187,37 +126,7 @@ export default function Proventos() {
     setDatePreset('custom');
   };
 
-  // Chart data: monthly dividends grouped by asset class
-  const monthlyChartData = useMemo(() => {
-    if (!filteredDividends) return [];
-
-    const monthlyData: Record<string, Record<AssetClass, number>> = {};
-
-    filteredDividends.forEach(d => {
-      const paymentDate = parseISODateLocal(d.payment_date) ?? new Date(d.payment_date);
-      const monthKey = format(paymentDate, 'yyyy-MM');
-      const assetClass = classifyAsset(d.ticker) as AssetClass;
-
-      if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { 'Ação': 0, 'FII': 0, 'ETF': 0, 'FI-Infra': 0, 'FIP': 0, 'Outro': 0 };
-      }
-      monthlyData[monthKey][assetClass] += Number(d.net_value);
-    });
-
-    // Sort by month and convert to array
-    return Object.entries(monthlyData)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, values]) => {
-        // Parse date locally to avoid timezone offset issues
-        const [year, monthNum] = month.split('-').map(Number);
-        const localDate = new Date(year, monthNum - 1, 1);
-        return {
-          month: format(localDate, 'MMM/yy', { locale: ptBR }),
-          // Classes without dividends that month are left out, so the tooltip skips them
-          ...Object.fromEntries(Object.entries(values).map(([assetClass, value]) => [assetClass, value || undefined])),
-        };
-      });
-  }, [filteredDividends]);
+  const monthlyChartData = useMemo(() => monthlyDividendsByAssetClass(filteredDividends), [filteredDividends]);
 
   const toggleChartAssetClass = (assetClass: AssetClass) => {
     setChartAssetClasses(prev =>
@@ -498,30 +407,14 @@ export default function Proventos() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('ticker')}>
-                        <div className="flex items-center gap-1">Ativo {sortConfig?.key === 'ticker' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                      </TableHead>
-                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('assetClass')}>
-                        <div className="flex items-center gap-1">Classe {sortConfig?.key === 'assetClass' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                      </TableHead>
-                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('payment_date')}>
-                        <div className="flex items-center gap-1">Data Pagamento {sortConfig?.key === 'payment_date' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                      </TableHead>
-                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('event_type')}>
-                        <div className="flex items-center gap-1">Tipo {sortConfig?.key === 'event_type' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                      </TableHead>
-                      <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('institution')}>
-                        <div className="flex items-center gap-1">Instituição {sortConfig?.key === 'institution' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                      </TableHead>
-                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('quantity')}>
-                        <div className="flex items-center justify-end gap-1">Quantidade {sortConfig?.key === 'quantity' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                      </TableHead>
-                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('unit_price')}>
-                        <div className="flex items-center justify-end gap-1">Preço Unit. {sortConfig?.key === 'unit_price' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                      </TableHead>
-                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('net_value')}>
-                        <div className="flex items-center justify-end gap-1">Valor Líquido {sortConfig?.key === 'net_value' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />) : <ArrowUpDown className="h-4 w-4 opacity-50" />}</div>
-                      </TableHead>
+                      <SortableHead label="Ativo" sortKey="ticker" sort={sortConfig} onSort={handleSort} />
+                      <SortableHead label="Classe" sortKey="assetClass" sort={sortConfig} onSort={handleSort} />
+                      <SortableHead label="Data Pagamento" sortKey="payment_date" sort={sortConfig} onSort={handleSort} />
+                      <SortableHead label="Tipo" sortKey="event_type" sort={sortConfig} onSort={handleSort} />
+                      <SortableHead label="Instituição" sortKey="institution" sort={sortConfig} onSort={handleSort} />
+                      <SortableHead label="Quantidade" sortKey="quantity" sort={sortConfig} onSort={handleSort} align="right" />
+                      <SortableHead label="Preço Unit." sortKey="unit_price" sort={sortConfig} onSort={handleSort} align="right" />
+                      <SortableHead label="Valor Líquido" sortKey="net_value" sort={sortConfig} onSort={handleSort} align="right" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>

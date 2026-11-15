@@ -66,6 +66,7 @@ portfolio-tracker/
     │   ├── xlsx-parser.ts      # Proventos and negociações statements → typed rows with per-row errors
     │   ├── b3-movimentacao.ts  # B3 movements statement → dividends + corporate events
     │   ├── import-dedupe.ts    # Skips rows already stored (frequency map)
+    │   ├── list-filters.ts     # Negociações/Proventos filters, sorting, totals, date presets, dividend chart data
     │   ├── formatters.ts       # BRL currency, dates, number parsing, ticker normalization
     │   ├── fetch-all-pages.ts  # Pages through PostgREST's 1000-row limit
     │   ├── asset-classifier.ts # Ticker → asset class lookup (no tests)
@@ -330,6 +331,8 @@ Dates are parsed with `parseISODateLocal()`, so payments on the 1st of a month a
 
 ### 9.3 Negociações — [Negociacoes.tsx](src/pages/Negociacoes.tsx)
 
+The filtering, sorting, totals and chart data of this page and Proventos (§9.4) live in [list-filters.ts](src/lib/list-filters.ts); the pages hold the filter state and render.
+
 - Paginated table (50 items/page). Both browsers use the shared `usePagination` hook (back to page 1 when filters or sorting change) and `PaginationControls` component.
 - Filters: start/end date (native date inputs), movement type, ticker, asset class.
 - Summary cards: Total Compras (`BUY` + `BONUS`), Total Vendas (`SELL` + `AMORTIZATION`), operation count.
@@ -458,5 +461,5 @@ graph LR
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **Form validation** | Forms use raw `useState` without a validation library. |
 | **Error handling** | Supabase errors are shown via toasts. There is no global error boundary. |
-| **Test coverage** | Unit tests cover the cost basis, IR sales logic and per-asset history, statement parsers, import deduplication, formatters and pagination. E2E tests (`npm run test:e2e`) cover login and password reset, the three imports with deduplication, positions, dashboard totals, the IR page with the initial loss, and dividend pagination; they run against the hosted Supabase project (no local stack), using a dedicated test account. The IR "Por Ativo" tab and trade editing have no E2E test. |
+| **Test coverage** | Unit tests cover the cost basis, IR sales logic and per-asset history, the Negociações/Proventos filters, statement parsers, import deduplication, formatters and pagination. E2E tests (`npm run test:e2e`) cover login and password reset, the three imports with deduplication, positions, dashboard totals, the IR page with the initial loss, and dividend pagination; they run against the hosted Supabase project (no local stack), using a dedicated test account. The IR "Por Ativo" tab and trade editing have no E2E test. |
 | **CSV data freshness** | Asset classification CSVs are static snapshots. New listings require manual updates. |

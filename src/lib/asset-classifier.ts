@@ -13,6 +13,9 @@ import fipsRaw from '@/data/FIPs.csv?raw';
 
 export type AssetClass = 'Ação' | 'ETF' | 'FII' | 'FI-Infra' | 'FIP' | 'Outro';
 
+/** Every class, in display order. */
+export const ASSET_CLASSES: AssetClass[] = ['Ação', 'FII', 'ETF', 'FI-Infra', 'FIP', 'Outro'];
+
 // Parse CSV and extract ticker codes (base 4-char codes)
 function extractTickerBases(csvContent: string, tickerColumn: number, delimiter: string): Set<string> {
   const lines = csvContent.trim().split('\n');
