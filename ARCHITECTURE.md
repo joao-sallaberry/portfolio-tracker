@@ -394,7 +394,7 @@ Shows the authenticated user's email and a logout button (`supabase.auth.signOut
 
 | Function | Rule |
 |---|---|
-| `parseISODateLocal(s)` | Use for every `YYYY-MM-DD` from the database. `new Date(s)` reads it as UTC midnight, which is the previous day in Brazil |
+| `parseISODateLocal(s)` | Use for every `YYYY-MM-DD` from the database. `new Date(s)` reads it as UTC midnight, which is the previous day in Brazil. Returns `null` for anything else, so there is no `new Date(s)` fallback |
 | `formatISODateLocal(d)` | Use when writing dates; `toISOString()` has the same UTC problem in reverse |
 | `normalizeTicker(s)` | Apply wherever a ticker enters the database: uppercases and strips the fractional-market `F` (`PETR4F` → `PETR4`) |
 | `normalizeMovementType(s)` | Broker labels → movement enum (§7.1) |

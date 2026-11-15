@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatCurrencyCompactBRL, formatISODateLocal, normalizeTicker } from './formatters';
+import { formatCurrencyCompactBRL, formatDateBR, formatISODateLocal, normalizeTicker, parseISODateLocal } from './formatters';
 
 describe('normalizeTicker', () => {
   it('strips the fractional-market F suffix', () => {
@@ -47,5 +47,32 @@ describe('formatISODateLocal', () => {
   it('formats the local calendar date, including late at night', () => {
     expect(formatISODateLocal(new Date(2026, 0, 1))).toBe('2026-01-01');
     expect(formatISODateLocal(new Date(2026, 11, 31, 23, 59))).toBe('2026-12-31');
+  });
+});
+
+describe('parseISODateLocal', () => {
+  it('reads database dates as local midnight', () => {
+    expect(parseISODateLocal('2025-01-01')).toEqual(new Date(2025, 0, 1));
+    expect(parseISODateLocal('2025-01-01T23:30:00Z')).toEqual(new Date(2025, 0, 1));
+  });
+
+  it('rejects anything that is not a YYYY-MM-DD date', () => {
+    expect(parseISODateLocal('')).toBeNull();
+    expect(parseISODateLocal(null)).toBeNull();
+    expect(parseISODateLocal('01/02/2025')).toBeNull();
+    expect(parseISODateLocal('Jan 1, 2025')).toBeNull();
+    expect(parseISODateLocal('2025-02-30')).toBeNull();
+    expect(parseISODateLocal('2025-13-01')).toBeNull();
+  });
+});
+
+describe('formatDateBR', () => {
+  it('formats database dates without shifting the day', () => {
+    expect(formatDateBR('2025-01-01')).toBe('01/01/2025');
+    expect(formatDateBR(new Date(2025, 11, 31))).toBe('31/12/2025');
+  });
+
+  it('returns an unparsable string unchanged instead of "Invalid Date"', () => {
+    expect(formatDateBR('sem data')).toBe('sem data');
   });
 });

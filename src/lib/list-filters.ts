@@ -32,12 +32,11 @@ export function uniqueSorted<T extends string>(values: T[]): T[] {
   return [...new Set(values)].sort();
 }
 
-function toLocalDate(isoDate: string): Date {
-  return parseISODateLocal(isoDate) ?? new Date(isoDate);
-}
-
+/** Rows whose date can't be parsed only match when no date bound is set. */
 function inDateRange(isoDate: string, { startDate, endDate }: DateRange): boolean {
-  const date = toLocalDate(isoDate);
+  if (!startDate && !endDate) return true;
+  const date = parseISODateLocal(isoDate);
+  if (!date) return false;
   if (startDate && date < startDate) return false;
   if (endDate && date > endDate) return false;
   return true;
@@ -188,7 +187,7 @@ export function nextSortConfig<K extends string>(current: SortConfig<K> | null, 
 
 export function sumNetValue(dividends: FilterableDividend[], year?: number): number {
   return dividends
-    .filter((d) => year === undefined || toLocalDate(d.payment_date).getFullYear() === year)
+    .filter((d) => year === undefined || parseISODateLocal(d.payment_date)?.getFullYear() === year)
     .reduce((sum, d) => sum + Number(d.net_value), 0);
 }
 

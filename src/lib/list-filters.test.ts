@@ -84,6 +84,12 @@ describe('filterTrades', () => {
     expect(result.map((t) => t.trade_date)).toEqual(['2025-01-31', '2025-02-01']);
   });
 
+  it('drops rows with an unparsable date only when a date bound is set', () => {
+    const withBadDate = [...trades, trade('PETR4', '', 'BUY', 1)];
+    expect(filterTrades(withBadDate, noTradeFilters)).toHaveLength(4);
+    expect(filterTrades(withBadDate, { ...noTradeFilters, endDate: new Date(2030, 0, 1) })).toHaveLength(3);
+  });
+
   it('combines type, ticker and asset class filters', () => {
     expect(filterTrades(trades, { ...noTradeFilters, movementType: 'SELL' })).toHaveLength(2);
     expect(filterTrades(trades, { ...noTradeFilters, movementType: 'SELL', ticker: 'PETR4' })).toHaveLength(1);

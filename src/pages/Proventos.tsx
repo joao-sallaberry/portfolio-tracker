@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { formatDateBR, formatCurrencyBRL, formatNumber } from '@/lib/formatters';
+import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
 import { ASSET_CLASSES, classifyAsset, type AssetClass } from '@/lib/asset-classifier';
 import {
   ALL,
@@ -308,14 +308,7 @@ export default function Proventos() {
             <Input
               type="date"
               value={startDate ? format(startDate, "yyyy-MM-dd") : ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (!val) {
-                  handleStartDateChange(undefined);
-                } else {
-                  handleStartDateChange(new Date(val + 'T00:00:00'));
-                }
-              }}
+              onChange={(e) => handleStartDateChange(parseISODateLocal(e.target.value) ?? undefined)}
               className={cn("w-[160px]", !startDate && "text-muted-foreground")}
             />
 
@@ -323,14 +316,7 @@ export default function Proventos() {
             <Input
               type="date"
               value={endDate ? format(endDate, "yyyy-MM-dd") : ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (!val) {
-                  handleEndDateChange(undefined);
-                } else {
-                  handleEndDateChange(new Date(val + 'T00:00:00'));
-                }
-              }}
+              onChange={(e) => handleEndDateChange(parseISODateLocal(e.target.value) ?? undefined)}
               className={cn("w-[160px]", !endDate && "text-muted-foreground")}
             />
 

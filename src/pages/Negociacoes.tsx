@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDateBR, formatCurrencyBRL, formatNumber } from '@/lib/formatters';
+import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
 import { classifyAsset } from '@/lib/asset-classifier';
 import { ALL, filterTrades, sumTradeTotals, uniqueSorted } from '@/lib/list-filters';
 import { Switch } from '@/components/ui/switch';
@@ -219,14 +219,7 @@ export default function Negociacoes() {
               <Input
                 type="date"
                 value={startDate ? format(startDate, "yyyy-MM-dd") : ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (!val) {
-                    setStartDate(undefined);
-                  } else {
-                    setStartDate(new Date(val + 'T00:00:00'));
-                  }
-                }}
+                onChange={(e) => setStartDate(parseISODateLocal(e.target.value) ?? undefined)}
                 className={cn("w-[140px]", !startDate && "text-muted-foreground")}
               />
 
@@ -234,14 +227,7 @@ export default function Negociacoes() {
               <Input
                 type="date"
                 value={endDate ? format(endDate, "yyyy-MM-dd") : ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (!val) {
-                    setEndDate(undefined);
-                  } else {
-                    setEndDate(new Date(val + 'T00:00:00'));
-                  }
-                }}
+                onChange={(e) => setEndDate(parseISODateLocal(e.target.value) ?? undefined)}
                 className={cn("w-[140px]", !endDate && "text-muted-foreground")}
               />
 

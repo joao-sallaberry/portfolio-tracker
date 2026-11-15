@@ -1,23 +1,20 @@
 // Brazilian Portuguese formatters for dates and currency
 
-export function parseISODateLocal(dateStr: string): Date | null {
-  if (!dateStr) return null;
+/**
+ * Parses a database date (YYYY-MM-DD, optionally followed by a time) as local midnight.
+ * Returns null for anything else: `new Date(str)` would read it as UTC midnight, the previous
+ * day in Brazil.
+ */
+export function parseISODateLocal(dateStr: string | null | undefined): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(dateStr ?? '');
+  if (!match) return null;
 
-  // Accept both date-only (YYYY-MM-DD) and full ISO (YYYY-MM-DDTHH:mm:ss...)
-  const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart);
-
-  if (match) {
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    const d = new Date(year, month - 1, day);
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  // Fallback for other formats
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? null : d;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const d = new Date(year, month - 1, day);
+  // Rejects dates that roll over, such as 2025-02-30
+  return d.getMonth() === month - 1 && d.getDate() === day ? d : null;
 }
 
 /** YYYY-MM-DD from the local date (toISOString would shift it by the UTC offset). */
@@ -25,8 +22,10 @@ export function formatISODateLocal(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+/** DD/MM/YYYY; a string that isn't a database date is returned unchanged. */
 export function formatDateBR(date: Date | string): string {
-  const d = typeof date === 'string' ? (parseISODateLocal(date) ?? new Date(date)) : date;
+  const d = typeof date === 'string' ? parseISODateLocal(date) : date;
+  if (!d) return String(date);
 
   return d.toLocaleDateString('pt-BR', {
     day: '2-digit',
