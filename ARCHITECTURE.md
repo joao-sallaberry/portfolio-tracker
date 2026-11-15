@@ -25,7 +25,7 @@ Exact versions are in `package.json`; the table notes only what affects how the 
 | Layer | Technology | Notes |
 |---|---|---|
 | **Build** | [Vite](vite.config.ts) + `@vitejs/plugin-react` | Dev server on port `8080`, `@` → `./src` alias; the build fails without the `VITE_SUPABASE_*` env vars |
-| **UI** | React 19, TypeScript (non-strict) | Pure SPA, no SSR; pages are lazy-loaded (§6) |
+| **UI** | React 19, TypeScript (strict) | Pure SPA, no SSR; pages are lazy-loaded (§6) |
 | **Routing** | `react-router` | Declarative `BrowserRouter` mode |
 | **Styling** | Tailwind CSS **3** + `tailwindcss-animate` | Theme in [index.css](src/index.css) (§11). Tailwind 4 not adopted, so shadcn output written for it must be mapped back (see `chart.tsx`) |
 | **Components** | shadcn/ui (Radix) | Only the components in use live in `src/components/ui/`; add others with the shadcn CLI |

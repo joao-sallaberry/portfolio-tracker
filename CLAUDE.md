@@ -9,6 +9,7 @@ npm install            # needs npm >= 11 (npm 9/10 crash on this dependency tree
 npm run dev            # Vite dev server on http://localhost:8080
 npm run build          # production build
 npm run lint           # eslint
+npm run typecheck      # tsc (strict); neither the build nor eslint checks types
 npm run test           # vitest run (all tests)
 npx vitest run src/lib/portfolio-calculations.test.ts      # single file
 npx vitest run -t "should calculate positions"             # single test by name
@@ -18,7 +19,7 @@ npx playwright test -g "IR taxes"                          # single e2e test by 
 
 E2E tests (`e2e/*.e2e.ts`, config in `playwright.config.ts`) build the app, serve it with `vite preview` on port 4173 and log in as the dedicated test account from `.env.test.local` (`TEST_USER_EMAIL` / `TEST_USER_PASSWORD`). They run against the hosted Supabase project and **wipe that account's data first**, so they run serially and build on each other's data (`e2e/support/fixtures.ts`, dated relative to the current year). Never point them at a real account. They use a system Chromium when one is installed (`/snap/bin/chromium`); Snap Chromium can't read the host `/tmp`, so pass uploads as `{ name, mimeType, buffer }`. Currency strings contain a non-breaking space after `R$`: plain-string `toContainText` handles it, regexes need `\s`.
 
-Requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `.env` (read by `src/integrations/supabase/client.ts`). `.env` is gitignored; copy it from `.env.example`. There is no local Supabase setup; the app talks to the hosted project whose id is set in `supabase/config.toml`. TypeScript runs non-strict (`strict: false`, `noImplicitAny: false`).
+Requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `.env` (read by `src/integrations/supabase/client.ts`). `.env` is gitignored; copy it from `.env.example`. There is no local Supabase setup; the app talks to the hosted project whose id is set in `supabase/config.toml`. TypeScript runs in strict mode (`tsconfig.app.json`).
 
 ## Deploy
 

@@ -221,7 +221,7 @@ export default function Index() {
                     tickFormatter={formatCurrencyCompactBRL}
                   />
                   <Tooltip 
-                    formatter={(value: number) => formatCurrencyBRL(value)}
+                    formatter={(value) => formatCurrencyBRL(Number(value))}
                     labelFormatter={(label) => `Mês: ${label}`}
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))',
@@ -267,7 +267,7 @@ export default function Index() {
                     cx="50%"
                     cy="50%"
                     outerRadius={100}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent = 0 }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     labelLine={false}
                   >
                     {portfolioDistribution.map((entry, index) => (
@@ -276,7 +276,7 @@ export default function Index() {
                   </Pie>
                   <Legend />
                   <Tooltip 
-                    formatter={(value: number) => formatCurrencyBRL(value)}
+                    formatter={(value) => formatCurrencyBRL(Number(value))}
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
@@ -322,7 +322,7 @@ export default function Index() {
                   width={80}
                 />
                 <Tooltip 
-                  formatter={(value: number) => formatCurrencyBRL(value)}
+                  formatter={(value) => formatCurrencyBRL(Number(value))}
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--card))',
                     border: '1px solid hsl(var(--border))',
