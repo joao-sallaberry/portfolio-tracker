@@ -2,6 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  calculateClosedPositions,
   applyTradeToCostBasis,
   calculateCostBasis,
   calculatePositions,
@@ -283,5 +284,26 @@ describe('calculateCostBasis', () => {
       { movement_type: 'BUY', quantity: 50, total_value: 600, trade_date: '2023-03-01' },
     ]);
     expect(basis).toEqual({ quantity: 50, totalCost: 600 });
+  });
+});
+
+describe('calculateClosedPositions', () => {
+  it('lists tickers sold to zero with the date they closed, latest first', () => {
+    const trades: TradeForCalculation[] = [
+      { ticker: 'HYPE3', quantity: 100, total_value: 2000, movement_type: 'BUY', trade_date: '2025-01-10' },
+      { ticker: 'PETR4', quantity: 100, total_value: 3000, movement_type: 'BUY', trade_date: '2025-01-10' },
+      { ticker: 'EGIE3', quantity: 10, total_value: 300, movement_type: 'BUY', trade_date: '2025-01-10' },
+      { ticker: 'HYPE3', quantity: 60, total_value: 1500, movement_type: 'SELL', trade_date: '2025-02-01' },
+      { ticker: 'EGIE3', quantity: 10, total_value: 280, movement_type: 'SELL', trade_date: '2025-02-15' },
+      { ticker: 'HYPE3', quantity: 40, total_value: 1000, movement_type: 'SELL', trade_date: '2025-03-01' },
+    ];
+    expect(calculateClosedPositions(trades)).toEqual([
+      { ticker: 'HYPE3', assetClass: 'Ação', closedOn: '2025-03-01' },
+      { ticker: 'EGIE3', assetClass: 'Ação', closedOn: '2025-02-15' },
+    ]);
+  });
+
+  it('is empty without trades', () => {
+    expect(calculateClosedPositions(undefined)).toEqual([]);
   });
 });

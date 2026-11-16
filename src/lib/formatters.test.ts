@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { describe, it, expect } from 'vitest';
-import { formatCurrencyCompactBRL, formatDateBR, formatISODateLocal, normalizeTicker, parseISODateLocal } from './formatters';
+import { formatCurrencyCompactBRL, formatDateBR, formatISODateLocal, normalizeTicker, parseISODateLocal, formatPercent } from './formatters';
 
 describe('normalizeTicker', () => {
   it('strips the fractional-market F suffix', () => {
@@ -76,5 +76,13 @@ describe('formatDateBR', () => {
 
   it('returns an unparsable string unchanged instead of "Invalid Date"', () => {
     expect(formatDateBR('sem data')).toBe('sem data');
+  });
+});
+
+describe('formatPercent', () => {
+  it('shows one decimal and drops a trailing zero', () => {
+    expect(formatPercent(0.498)).toBe('49,8%');
+    expect(formatPercent(1)).toBe('100%');
+    expect(formatPercent(-0.0018)).toBe('-0,2%');
   });
 });

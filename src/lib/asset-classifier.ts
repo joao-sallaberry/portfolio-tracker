@@ -56,6 +56,39 @@ const fiisBases = extractTickerBases(fiisRaw, 2, ';');
 const fiInfrasBases = extractTickerBases(fiInfrasRaw, 2, ';');
 const fipsBases = extractTickerBases(fipsRaw, 2, ';');
 
+// Asset names: stocks by full ticker (falling back to the 4-char base), funds by base.
+// The fund CSVs are Latin-1 read as UTF-8, so names with a mangled accent are left out.
+function extractNames(csvContent: string, tickerColumn: number, nameColumn: number, delimiter: string, byBase: boolean) {
+  const names = new Map<string, string>();
+  for (const line of csvContent.trim().split('\n').slice(1)) {
+    const columns = line.includes('"')
+      ? line.match(/("([^"]*)"|[^,;]+)/g)?.map((c) => c.replace(/^"|"$/g, '')) ?? []
+      : line.split(delimiter);
+    const ticker = columns[tickerColumn]?.trim().toUpperCase();
+    const name = columns[nameColumn]?.trim();
+    if (!ticker || !name || name.includes('\uFFFD')) continue;
+    const key = byBase ? ticker.slice(0, 4) : ticker;
+    if (!names.has(key)) names.set(key, name);
+  }
+  return names;
+}
+
+const stockNames = extractNames(acoesRaw, 0, 1, ',', false);
+const stockBaseNames = new Map([...stockNames].map(([ticker, name]): [string, string] => [ticker.slice(0, 4), name]).reverse());
+const fundNames = new Map([
+  ...extractNames(fipsRaw, 2, 1, ';', true),
+  ...extractNames(fiInfrasRaw, 2, 1, ';', true),
+  ...extractNames(fiisRaw, 2, 1, ';', true),
+  ...extractNames(etfsRaw, 2, 1, ';', true),
+]);
+
+/** Company or fund name of a ticker ("Petrobras", "FII MAXI REN"), or null when unknown. */
+export function getAssetName(ticker: string): string | null {
+  const normalized = ticker.trim().toUpperCase();
+  const base = normalized.slice(0, 4);
+  return stockNames.get(normalized) ?? fundNames.get(base) ?? stockBaseNames.get(base) ?? null;
+}
+
 /**
  * Classify a ticker into its asset class
  * @param ticker - The ticker symbol (e.g., "PETR4", "XPML11", "BOVA11")

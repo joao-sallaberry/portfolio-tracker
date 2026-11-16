@@ -14,6 +14,7 @@ import {
   formatCurrencyCompactBRL,
   formatDateBR,
   formatNumber,
+  formatPercent,
   movementTypeLabel,
   parseISODateLocal,
 } from '@/lib/formatters';
@@ -33,12 +34,6 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-
-/** "49,8%", or "100%" without a trailing ",0" */
-const formatPercent = (share: number) => {
-  const percent = Math.round(share * 1000) / 10;
-  return `${formatNumber(percent, Number.isInteger(percent) ? 0 : 1)}%`;
-};
 
 function Panel({ className, children }: { className?: string; children: ReactNode }) {
   return <section className={cn('flex flex-col gap-5 rounded-xl border bg-card p-6', className)}>{children}</section>;

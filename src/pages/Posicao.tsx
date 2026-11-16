@@ -1,156 +1,234 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, ChevronDown } from 'lucide-react';
 import { useTradeOperations } from '@/hooks/use-portfolio-data';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrencyBRL, formatNumber } from '@/lib/formatters';
-import { Briefcase, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { formatCurrencyBRL, formatDateBR, formatNumber, formatPercent } from '@/lib/formatters';
+import { ASSET_CLASSES, getAssetName } from '@/lib/asset-classifier';
+import { ASSET_CLASS_COLORS, ASSET_CLASS_LABELS } from '@/lib/asset-class-colors';
+import { calculateClosedPositions, calculatePositions } from '@/lib/portfolio-calculations';
+import { searchPositions, sortPositions, type PositionSortKey, type SortConfig } from '@/lib/list-filters';
+import { cn } from '@/lib/utils';
 
-import { calculatePositions, type Position } from '@/lib/portfolio-calculations';
+const COLUMNS: { key: PositionSortKey; label: string; align: 'left' | 'right' }[] = [
+  { key: 'ticker', label: 'Ativo', align: 'left' },
+  { key: 'quantity', label: 'Quantidade', align: 'right' },
+  { key: 'avgPrice', label: 'Preço médio', align: 'right' },
+  { key: 'totalValue', label: 'Custo total', align: 'right' },
+];
 
-type SortKey = 'ticker' | 'quantity' | 'avgPrice' | 'totalValue' | 'portfolioWeight';
-type SortDirection = 'asc' | 'desc';
+function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border bg-card px-6 py-5">
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  );
+}
 
 export default function Posicao() {
-  const [sortKey, setSortKey] = useState<SortKey>('totalValue');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { data: trades, isLoading } = useTradeOperations();
+  const [sort, setSort] = useState<SortConfig<PositionSortKey>>({ key: 'totalValue', direction: 'desc' });
+  const [query, setQuery] = useState('');
+  const [showClosed, setShowClosed] = useState(false);
 
-  const positions: Position[] = calculatePositions(trades);
+  const positions = useMemo(() => calculatePositions(trades), [trades]);
+  const closedPositions = useMemo(() => calculateClosedPositions(trades), [trades]);
+  const totalCost = positions.reduce((sum, p) => sum + p.totalValue, 0);
+  const visible = useMemo(() => sortPositions(searchPositions(positions, query), sort), [positions, query, sort]);
 
-  const totalPortfolio = positions.reduce((sum, p) => sum + p.totalValue, 0);
+  const classes = ASSET_CLASSES.map((assetClass) => {
+    const ofClass = positions.filter((p) => p.assetClass === assetClass);
+    const cost = ofClass.reduce((sum, p) => sum + p.totalValue, 0);
+    return { assetClass, cost, share: totalCost > 0 ? cost / totalCost : 0, rows: visible.filter((p) => p.assetClass === assetClass) };
+  }).filter((c) => c.rows.length > 0 || (!query && positions.some((p) => p.assetClass === c.assetClass)));
 
-  // Group positions by asset class
-  const positionsByClass = {
-    'Ação': positions.filter((p) => p.assetClass === 'Ação'),
-    'FII': positions.filter((p) => p.assetClass === 'FII'),
-    'ETF': positions.filter((p) => p.assetClass === 'ETF'),
-    'FI-Infra': positions.filter((p) => p.assetClass === 'FI-Infra'),
-    'FIP': positions.filter((p) => p.assetClass === 'FIP'),
-    'Outro': positions.filter((p) => p.assetClass === 'Outro'),
-  };
-
-  const renderTable = (classPositions: Position[], className: string) => {
-    if (classPositions.length === 0) return null;
-    const classTotal = classPositions.reduce((sum, p) => sum + p.totalValue, 0);
-
-    const handleSort = (key: SortKey) => {
-      if (sortKey === key) {
-        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-      } else {
-        setSortKey(key);
-        setSortDirection(key === 'ticker' ? 'asc' : 'desc');
-      }
-    };
-
-    const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
-      if (sortKey !== columnKey) return <ArrowUpDown className="ml-1 h-3 w-3 inline text-muted-foreground" />;
-      return sortDirection === 'asc' ? <ArrowUp className="ml-1 h-3 w-3 inline" /> : <ArrowDown className="ml-1 h-3 w-3 inline" />;
-    };
-
-    const sortedPositions = [...classPositions].sort((a, b) => {
-      let valA: string | number;
-      let valB: string | number;
-
-      if (sortKey === 'ticker') {
-        valA = a.ticker;
-        valB = b.ticker;
-      } else if (sortKey === 'portfolioWeight') {
-        valA = a.totalValue; // equivalent to portfolioWeight for sorting
-        valB = b.totalValue;
-      } else {
-        valA = a[sortKey];
-        valB = b[sortKey];
-      }
-
-      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return (
-      <Card key={className}>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-2xl">
-            <Briefcase className="h-5 w-5" />
-            {className}
-          </CardTitle>
-          <span className="text-xl font-bold">{formatCurrencyBRL(classTotal)}</span>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('ticker')}>Ativo <SortIcon columnKey="ticker" /></TableHead>
-                <TableHead className="text-right cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('quantity')}>Quantidade <SortIcon columnKey="quantity" /></TableHead>
-                <TableHead className="text-right cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('avgPrice')}>Preço Médio <SortIcon columnKey="avgPrice" /></TableHead>
-                <TableHead className="text-right cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('totalValue')}>Valor Total <SortIcon columnKey="totalValue" /></TableHead>
-                <TableHead className="text-right cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('portfolioWeight')}>% Carteira <SortIcon columnKey="portfolioWeight" /></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedPositions.map((position) => (
-                <TableRow key={position.ticker}>
-                  <TableCell className="font-mono font-medium">{position.ticker}</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatNumber(position.quantity, 0)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatCurrencyBRL(position.avgPrice)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-medium">
-                    {formatCurrencyBRL(position.totalValue)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatNumber((position.totalValue / totalPortfolio) * 100, 1)}%
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+  // Numbers sort from the largest first; a second click flips the direction
+  const handleSort = (key: PositionSortKey) =>
+    setSort((current) =>
+      current.key === key
+        ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+        : { key, direction: key === 'ticker' ? 'asc' : 'desc' },
     );
-  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Posição</h1>
-        <p className="text-muted-foreground">Quantidade e valor agregado de cada ativo</p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-display text-3xl font-bold tracking-tight">Posição</h1>
+          <p className="text-sm text-muted-foreground">Quantidade e preço médio de cada ativo em carteira</p>
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="busca-ativo" className="text-xs font-semibold">Buscar ativo</Label>
+          <Input
+            id="busca-ativo"
+            type="search"
+            placeholder="Ticker ou nome"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-10 w-60 rounded-[10px] bg-card"
+          />
+        </div>
+      </header>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-2xl">
-            <Briefcase className="h-5 w-5" />
-            Portfólio Total
-          </CardTitle>
-          {!isLoading && (
-            <span className="text-2xl font-bold">{formatCurrencyBRL(totalPortfolio)}</span>
-          )}
-        </CardHeader>
-      </Card>
+      <section aria-label="Resumo" className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-3">
+        <Stat label="Custo total">
+          <span className="font-display text-[28px] leading-tight font-bold tracking-tight">
+            {isLoading ? <Skeleton className="h-8 w-40" /> : formatCurrencyBRL(totalCost)}
+          </span>
+        </Stat>
+        <Stat label="Ativos em carteira">
+          <span className="font-display text-[28px] leading-tight font-bold tracking-tight">
+            {isLoading ? <Skeleton className="h-8 w-12" /> : positions.length}
+          </span>
+        </Stat>
+        <Stat label="Por classe">
+          <div className="mt-1 flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-muted">
+            {ASSET_CLASSES.map((assetClass) => {
+              const cost = positions.filter((p) => p.assetClass === assetClass).reduce((sum, p) => sum + p.totalValue, 0);
+              return cost > 0 && totalCost > 0 ? (
+                <div key={assetClass} style={{ flexGrow: cost / totalCost, backgroundColor: ASSET_CLASS_COLORS[assetClass] }} />
+              ) : null;
+            })}
+          </div>
+          <span className="text-sm text-muted-foreground">
+            {classes.length === 0
+              ? 'Nenhuma posição'
+              : classes.map((c) => `${ASSET_CLASS_LABELS[c.assetClass]} ${formatPercent(c.share)}`).join(' · ')}
+          </span>
+        </Stat>
+      </section>
 
       {isLoading ? (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} className="h-11 w-full" />
           ))}
         </div>
       ) : positions.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8">Nenhuma posição encontrada</p>
+        <p className="py-8 text-center text-muted-foreground">Nenhuma posição encontrada</p>
+      ) : classes.every((c) => c.rows.length === 0) ? (
+        <p className="py-8 text-center text-muted-foreground">Nenhum ativo corresponde a “{query.trim()}”</p>
       ) : (
-        <>
-          {renderTable(positionsByClass['Ação'], 'Ações')}
-          {renderTable(positionsByClass['FII'], 'Fundos Imobiliários')}
-          {renderTable(positionsByClass['ETF'], 'ETFs')}
-          {renderTable(positionsByClass['FI-Infra'], 'FI-Infra')}
-          {renderTable(positionsByClass['FIP'], 'FIP')}
-          {renderTable(positionsByClass['Outro'], 'Outros')}
-        </>
+        classes
+          .filter((c) => c.rows.length > 0)
+          .map(({ assetClass, cost, rows }) => (
+            <section key={assetClass} aria-label={ASSET_CLASS_LABELS[assetClass]} className="overflow-hidden rounded-xl border bg-card">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="size-2.5 rounded-[3px]" style={{ backgroundColor: ASSET_CLASS_COLORS[assetClass] }} />
+                  <h2 className="text-base font-semibold tracking-normal">{ASSET_CLASS_LABELS[assetClass]}</h2>
+                  <span className="text-sm text-muted-foreground">
+                    {rows.length} {rows.length === 1 ? 'ativo' : 'ativos'}
+                  </span>
+                </div>
+                <span className="font-bold">{formatCurrencyBRL(cost)}</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead>
+                    <tr className="bg-muted/40 text-xs tracking-wide text-muted-foreground uppercase">
+                      {COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          scope="col"
+                          aria-sort={sort.key === column.key ? (sort.direction === 'asc' ? 'ascending' : 'descending') : undefined}
+                          className={cn('px-4 py-2.5 font-semibold first:pl-6', column.align === 'right' ? 'text-right' : 'text-left')}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleSort(column.key)}
+                            className={cn('inline-flex items-center gap-1 uppercase', sort.key === column.key && 'text-foreground')}
+                          >
+                            {column.label}
+                            {sort.key === column.key &&
+                              (sort.direction === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                          </button>
+                        </th>
+                      ))}
+                      <th scope="col" className="w-56 py-2.5 pr-6 pl-8 text-left font-semibold">% da carteira</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((position) => {
+                      const share = totalCost > 0 ? position.totalValue / totalCost : 0;
+                      return (
+                        <tr key={position.ticker} className="border-t">
+                          <td className="py-2.5 pr-4 pl-6">
+                            <span className="font-mono text-[13px] font-semibold">{position.ticker}</span>
+                            {getAssetName(position.ticker) && (
+                              <span className="ml-2 text-muted-foreground">{getAssetName(position.ticker)}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">{formatNumber(position.quantity, 0)}</td>
+                          <td className="px-4 py-2.5 text-right">{formatCurrencyBRL(position.avgPrice)}</td>
+                          <td className="px-4 py-2.5 text-right font-semibold">{formatCurrencyBRL(position.totalValue)}</td>
+                          <td className="py-2.5 pr-6 pl-8">
+                            {position.totalValue < 0 ? (
+                              <div className="flex items-center justify-between gap-2.5">
+                                <span
+                                  title="As restituições de capital somam mais que o custo das compras"
+                                  className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-stone-700"
+                                >
+                                  Restituição &gt; custo
+                                </span>
+                                <span className="w-12 text-right">{formatPercent(share)}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-1.5 flex-1 rounded-full bg-muted">
+                                  <div
+                                    className="h-1.5 rounded-full"
+                                    style={{ width: `${Math.min(share * 100, 100)}%`, backgroundColor: ASSET_CLASS_COLORS[assetClass] }}
+                                  />
+                                </div>
+                                <span className="w-12 text-right">{formatPercent(share)}</span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ))
+      )}
+
+      {!isLoading && closedPositions.length > 0 && (
+        <section className="rounded-xl border border-dashed">
+          <button
+            type="button"
+            aria-expanded={showClosed}
+            onClick={() => setShowClosed((open) => !open)}
+            className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+          >
+            <span className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold">Posições encerradas</span>
+              <span className="text-sm text-muted-foreground">
+                {closedPositions.length} {closedPositions.length === 1 ? 'ativo vendido' : 'ativos vendidos'} por completo
+              </span>
+            </span>
+            <ChevronDown className={cn('size-4 text-muted-foreground transition-transform', showClosed && 'rotate-180')} />
+          </button>
+          {showClosed && (
+            <ul className="border-t px-5 py-2">
+              {closedPositions.map((closed) => (
+                <li key={closed.ticker} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span>
+                    <span className="font-mono text-[13px] font-semibold">{closed.ticker}</span>
+                    <span className="ml-2 text-muted-foreground">{ASSET_CLASS_LABELS[closed.assetClass]}</span>
+                  </span>
+                  <span className="text-muted-foreground">encerrada em {formatDateBR(closed.closedOn)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
     </div>
   );

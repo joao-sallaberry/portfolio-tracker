@@ -70,7 +70,7 @@ portfolio-tracker/
     │   ├── asset-class-colors.ts  # Chart color and plural label of each asset class (no tests)
     │   ├── formatters.ts       # BRL currency, dates, number parsing, ticker normalization
     │   ├── fetch-all-pages.ts  # Pages through PostgREST's 1000-row limit
-    │   ├── asset-classifier.ts # Ticker → asset class lookup (no tests)
+    │   ├── asset-classifier.ts # Ticker → asset class and asset name lookup
     │   ├── auth-recovery.ts    # Catches password-recovery links before the router loads (no tests)
     │   └── utils.ts            # `cn()` helper (clsx + tailwind-merge)
     ├── data/                   # Known tickers per asset class (CSV)
@@ -88,7 +88,7 @@ portfolio-tracker/
         ├── Import.tsx          # Data import workflow
         ├── Negociacoes.tsx     # Trade history browser + editing
         ├── Proventos.tsx       # Dividend history browser
-        ├── Posicao.tsx         # Current position summary
+        ├── Posicao.tsx         # Current positions by class, search, closed positions
         ├── ImpostoRenda.tsx    # Income tax calculator
         ├── Configuracoes.tsx   # Settings (profile + logout)
         └── NotFound.tsx        # 404 page
@@ -286,6 +286,8 @@ Five CSV files under `src/data/` are imported at build time (Vite `?raw`) and pa
 
 `classifyAsset(ticker)` checks ETF → FII → FI-Infra → FIP → Ação → fallback `"Outro"`. ETFs come first because some ETF base codes could collide with stock base codes.
 
+`getAssetName(ticker)` reads the name column of the same files (column 1): the company name for a stock ("Petrobras", by full ticker, then by base), the short fund name for a fund ("FII MAXI REN", by base), or `null`. The fund CSVs are Latin-1 but are read as UTF-8, so names whose accents got mangled are skipped.
+
 ---
 
 ## 9. Business Logic
@@ -356,7 +358,7 @@ The filtering, sorting, totals and chart data of this page and Proventos (§9.4)
 
 ### 9.5 Posição — [Posicao.tsx](src/pages/Posicao.tsx)
 
-Uses `calculatePositions()` (§9.1). Positions are grouped by asset class (Ações, FIIs, ETFs, FI-Infra, FIP, Outros), each in its own card with quantity, average price, total value and portfolio weight. Columns are sortable (default: total value descending).
+Uses `calculatePositions()` (§9.1). A summary shows the total cost, the number of assets and the split by class. Positions are grouped by asset class (Ações, FIIs, ETFs, FI-Infra, FIPs, Outros), one table each: ticker and asset name (`getAssetName()`), quantity, average price, total cost and portfolio weight with a bar. A position whose capital returns exceed its cost (negative cost) is labelled "Restituição > custo". Columns sort with `sortPositions()` (default: total cost descending; numbers start descending, the ticker ascending) and the search box filters with `searchPositions()` (ticker or name, ignoring case and accents), both in `list-filters.ts`. Below, a collapsed section lists the closed positions (`calculateClosedPositions()`: tickers sold to zero, with the date of their last trade).
 
 > **Limitation:** this is a **cost-basis** position. There is no market price data.
 

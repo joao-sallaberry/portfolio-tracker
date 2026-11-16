@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { describe, it, expect } from 'vitest';
+import { classifyAsset } from './asset-classifier';
 import {
   ALL,
   filterDividends,
@@ -8,6 +9,8 @@ import {
   getDatePresetRange,
   monthlyDividendsByAssetClass,
   nextSortConfig,
+  searchPositions,
+  sortPositions,
   sortDividends,
   sumNetValue,
   sumTradeTotals,
@@ -150,5 +153,28 @@ describe('dividends', () => {
       { month: 'dez/24', 'Ação': 100 },
       { month: 'jan/25', 'Ação': 30, 'FII': 50 },
     ]);
+  });
+});
+
+describe('positions', () => {
+  const position = (ticker: string, quantity: number, totalValue: number) => ({
+    ticker,
+    assetClass: classifyAsset(ticker),
+    quantity,
+    avgPrice: totalValue / quantity,
+    totalValue,
+  });
+  const positions = [position('PETR4', 100, 3000), position('EGIE3', 80, 2964.8), position('ITSA4', 110, -11)];
+
+  it('sorts by any column in either direction', () => {
+    expect(sortPositions(positions, { key: 'totalValue', direction: 'desc' }).map((p) => p.ticker)).toEqual(['PETR4', 'EGIE3', 'ITSA4']);
+    expect(sortPositions(positions, { key: 'ticker', direction: 'asc' }).map((p) => p.ticker)).toEqual(['EGIE3', 'ITSA4', 'PETR4']);
+    expect(sortPositions(positions, { key: 'quantity', direction: 'asc' }).map((p) => p.ticker)).toEqual(['EGIE3', 'PETR4', 'ITSA4']);
+  });
+
+  it('searches tickers and company names, ignoring case and accents', () => {
+    expect(searchPositions(positions, 'petr').map((p) => p.ticker)).toEqual(['PETR4']);
+    expect(searchPositions(positions, 'itausa').map((p) => p.ticker)).toEqual(['ITSA4']);
+    expect(searchPositions(positions, '  ')).toBe(positions);
   });
 });

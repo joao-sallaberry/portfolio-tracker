@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { classifyAsset, type AssetClass } from './asset-classifier';
-import { parseISODateLocal } from './formatters';
+import { formatISODateLocal, parseISODateLocal } from './formatters';
 
 export interface TradeForCalculation {
   ticker: string;
@@ -110,4 +110,27 @@ export function calculatePositions(trades: TradeForCalculation[] | null | undefi
     }))
     .filter((p) => p.quantity > 0)
     .sort((a, b) => b.totalValue - a.totalValue);
+}
+
+export interface ClosedPosition {
+  ticker: string;
+  assetClass: AssetClass;
+  /** Date of the ticker's last trade, which took it to zero (YYYY-MM-DD) */
+  closedOn: string;
+}
+
+/** Tickers that were held but have no quantity left, most recently closed first. */
+export function calculateClosedPositions(trades: TradeForCalculation[] | null | undefined): ClosedPosition[] {
+  const byTicker = new Map<string, { basis: CostBasis; lastDate: string }>();
+
+  for (const trade of sortTradesByDate(trades ?? [])) {
+    const current = byTicker.get(trade.ticker)?.basis ?? EMPTY_COST_BASIS;
+    const date = trade.trade_date instanceof Date ? formatISODateLocal(trade.trade_date) : trade.trade_date;
+    byTicker.set(trade.ticker, { basis: applyTradeToCostBasis(current, trade), lastDate: date });
+  }
+
+  return Array.from(byTicker.entries())
+    .filter(([, { basis }]) => basis.quantity <= 0)
+    .map(([ticker, { lastDate }]) => ({ ticker, assetClass: classifyAsset(ticker), closedOn: lastDate }))
+    .sort((a, b) => b.closedOn.localeCompare(a.closedOn) || a.ticker.localeCompare(b.ticker));
 }

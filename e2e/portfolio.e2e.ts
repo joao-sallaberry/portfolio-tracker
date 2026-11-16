@@ -65,6 +65,11 @@ test('positions merge fractional tickers and drop sold-out assets', async ({ pag
   await expect(page.getByRole('row').filter({ hasText: 'EGIE3' })).toContainText('R$ 37,06');
   await expect(page.getByText('PETR4F')).toHaveCount(0);
   await expect(page.getByText('HYPE3')).toHaveCount(0);
+  await expect(petr4).toContainText('Petrobras');
+
+  // HYPE3 was sold to zero: it is listed, collapsed, under the closed positions
+  await page.getByRole('button', { name: /Posições encerradas/ }).click();
+  await expect(page.getByRole('listitem').filter({ hasText: 'HYPE3' })).toContainText(`encerrada em 12/01/${YEAR}`);
 });
 
 test('dashboard uses the position cost and counts day-1 payments in their own year', async ({ page }) => {

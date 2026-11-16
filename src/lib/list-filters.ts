@@ -2,7 +2,8 @@
 
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ASSET_CLASSES, classifyAsset, type AssetClass } from './asset-classifier';
+import { ASSET_CLASSES, classifyAsset, getAssetName, type AssetClass } from './asset-classifier';
+import type { Position } from './portfolio-calculations';
 import { parseISODateLocal } from './formatters';
 
 /** Value of a select filter that matches everything. */
@@ -219,4 +220,30 @@ export function monthlyDividendsByAssetClass(dividends: FilterableDividend[]): M
         ...Object.fromEntries(Object.entries(values).filter(([, value]) => value !== 0)),
       };
     });
+}
+
+// ---------------------------------------------------------------------------
+// Posição
+// ---------------------------------------------------------------------------
+
+export type PositionSortKey = 'ticker' | 'quantity' | 'avgPrice' | 'totalValue';
+
+/** Sorted copy of positions (ties keep the input order). */
+export function sortPositions<T extends Position>(positions: T[], sort: SortConfig<PositionSortKey>): T[] {
+  const sign = sort.direction === 'asc' ? 1 : -1;
+  return [...positions].sort((a, b) => {
+    const aValue = a[sort.key];
+    const bValue = b[sort.key];
+    if (aValue < bValue) return -sign;
+    if (aValue > bValue) return sign;
+    return 0;
+  });
+}
+
+/** Positions whose ticker or asset name contains the query (case- and accent-insensitive). */
+export function searchPositions<T extends Position>(positions: T[], query: string): T[] {
+  const fold = (text: string) => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  const needle = fold(query.trim());
+  if (!needle) return positions;
+  return positions.filter((p) => fold(`${p.ticker} ${getAssetName(p.ticker) ?? ''}`).includes(needle));
 }

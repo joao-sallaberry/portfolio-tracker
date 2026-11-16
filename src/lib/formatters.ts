@@ -199,3 +199,9 @@ export function movementTypeLabel(type: string): string {
     default: return type;
   }
 }
+
+/** A share (0.498) as a pt-BR percentage with one decimal ("49,8%"), dropping a trailing ",0" ("100%"). */
+export function formatPercent(share: number): string {
+  const percent = Math.round(share * 1000) / 10;
+  return `${formatNumber(percent, Number.isInteger(percent) ? 0 : 1)}%`;
+}
