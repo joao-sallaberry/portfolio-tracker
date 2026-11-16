@@ -266,7 +266,14 @@ export default function Negociacoes() {
                             {trade.movement_type_raw}
                           </span>
                         </TableCell>
-                        <TableCell className="font-mono font-medium">{trade.ticker}</TableCell>
+                        <TableCell className="font-mono font-medium">
+                          {trade.ticker}
+                          {trade.original && (
+                            <span className="ml-1.5 text-xs font-normal text-muted-foreground" title="Registrado com o código antigo">
+                              (era {trade.original.ticker})
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell>{classifyAsset(trade.ticker)}</TableCell>
                         <TableCell className="max-w-[150px] truncate">{trade.institution}</TableCell>
                         <TableCell className="text-right font-mono">{formatNumber(Number(trade.quantity), 0)}</TableCell>
@@ -304,7 +311,7 @@ export default function Negociacoes() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setEditingTrade({ ...trade })}
+                            onClick={() => setEditingTrade({ ...(trade.original ?? trade) })}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>

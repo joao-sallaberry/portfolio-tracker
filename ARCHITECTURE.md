@@ -71,9 +71,10 @@ portfolio-tracker/
     │   ├── formatters.ts       # BRL currency, dates, number parsing, ticker normalization
     │   ├── fetch-all-pages.ts  # Pages through PostgREST's 1000-row limit
     │   ├── asset-classifier.ts # Ticker → asset class and asset name lookup
+    │   ├── ticker-changes.ts   # Maps renamed/merged tickers to the current one when read
     │   ├── auth-recovery.ts    # Catches password-recovery links before the router loads (no tests)
     │   └── utils.ts            # `cn()` helper (clsx + tailwind-merge)
-    ├── data/                   # Known tickers per asset class (CSV)
+    ├── data/                   # Known tickers per asset class, ticker changes (CSV)
     ├── hooks/                  # use-portfolio-data (shared queries), use-portfolio-mutations (every write), use-pagination, use-mobile
     ├── components/
     │   ├── layout/             # AppLayout (sidebar + header), AppSidebar
@@ -288,6 +289,10 @@ Five CSV files under `src/data/` are imported at build time (Vite `?raw`) and pa
 
 `getAssetName(ticker)` reads the name column of the same files (column 1): the company name for a stock ("Petrobras", by full ticker, then by base), the short fund name for a fund ("FII MAXI REN", by base), or `null`. The fund CSVs are Latin-1 but are read as UTF-8, so names whose accents got mangled are skipped.
 
+### 8.1 Ticker changes
+
+When an asset changes its ticker (a rename, or a fund merged into another), its old rows stay in the database as imported, so the import's deduplication still recognizes them. [ticker-changes.ts](src/lib/ticker-changes.ts) maps them to the current ticker when they are read, using `src/data/ticker-changes.csv` (`antigo;novo;fator`, `;`-delimited; `fator` is how many new shares each old share became, 1 for a rename). `resolveTicker()` follows chains (A → B → C, multiplying the factors); `applyTickerChange()` gives a trade the new ticker with quantity × factor and price ÷ factor (the value is unchanged) and keeps the stored row in `original`; `applyTickerChangeToDividend()` renames a dividend and keeps the stored ticker in `original_ticker`. `useTradeOperations()` / `useDividendEvents()` apply them in their `select`, so every page (positions, average cost, IR, dividends) sees one asset; the fetch functions used by the import return the rows as stored. Negociações shows "(era LGCP11)" next to a mapped ticker, and its edit dialog edits the stored row. To add a change, add a line to the CSV (and the new ticker to its class's CSV if it is missing).
+
 ---
 
 ## 9. Business Logic
@@ -433,7 +438,7 @@ graph LR
     F --> G[asset-classifier.ts]
 ```
 
-**Key pattern:** pages read data through [use-portfolio-data.ts](src/hooks/use-portfolio-data.ts): `useTradeOperations()` and `useDividendEvents()` fetch the user's full dataset (oldest first) under the shared query keys `TRADE_OPERATIONS_KEY` / `DIVIDEND_EVENTS_KEY`, so every page uses the same cache. They page through PostgREST's 1000-row limit with `fetchAllPages()`, ordering by date **and `id`** so rows don't repeat or go missing between pages. Pages filter and aggregate in memory. Every write (imports, clearing, trade edits, the IR initial loss) goes through a mutation hook in [use-portfolio-mutations.ts](src/hooks/use-portfolio-mutations.ts) that invalidates the keys it changes; pages don't call `supabase.from()` themselves.
+**Key pattern:** pages read data through [use-portfolio-data.ts](src/hooks/use-portfolio-data.ts): `useTradeOperations()` and `useDividendEvents()` fetch the user's full dataset (oldest first) under the shared query keys `TRADE_OPERATIONS_KEY` / `DIVIDEND_EVENTS_KEY`, so every page uses the same cache, and map old tickers to the current ones (§8.1). They page through PostgREST's 1000-row limit with `fetchAllPages()`, ordering by date **and `id`** so rows don't repeat or go missing between pages. Pages filter and aggregate in memory. Every write (imports, clearing, trade edits, the IR initial loss) goes through a mutation hook in [use-portfolio-mutations.ts](src/hooks/use-portfolio-mutations.ts) that invalidates the keys it changes; pages don't call `supabase.from()` themselves.
 
 ---
 
