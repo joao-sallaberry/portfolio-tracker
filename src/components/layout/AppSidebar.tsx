@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { BarChart3, TrendingUp, Wallet, Upload, Home, Briefcase, Receipt, Settings } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import {

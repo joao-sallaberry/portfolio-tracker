@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import * as XLSX from 'xlsx';
 
 /** Data is dated relative to the current year, since the IR page and the dashboard default to it. */

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { classifyAsset, type AssetClass } from './asset-classifier';
 import { parseISODateLocal } from './formatters';
 import {

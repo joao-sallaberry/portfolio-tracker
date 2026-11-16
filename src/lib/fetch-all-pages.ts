@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // PostgREST caps each response at 1000 rows
 export const PAGE_SIZE = 1000;
 

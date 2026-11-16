@@ -107,3 +107,9 @@ Every push to `main` is built and deployed by Vercel. The build needs `VITE_SUPA
 ## 📐 Architecture
 
 There is no backend code: parsing, deduplication, average cost and taxes all run in the browser, and Supabase only stores the data and handles auth. See [ARCHITECTURE.md](ARCHITECTURE.md) for the schema, the import pipeline and the business rules.
+
+## Licença
+
+Copyright (C) 2026 João Victor Henna Sallaberry
+
+Este programa é software livre: você pode redistribuí-lo e/ou modificá-lo sob os termos da GNU Affero General Public License, conforme publicada pela Free Software Foundation, na versão 3 da licença ou (a seu critério) qualquer versão posterior. Veja o arquivo [LICENSE](LICENSE).

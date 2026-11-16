@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ASSET_CLASSES, classifyAsset, type AssetClass } from './asset-classifier';

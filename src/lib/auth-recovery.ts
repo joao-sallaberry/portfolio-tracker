@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * Whether the page was opened from a password reset email link. Must be evaluated before the
  * Supabase client is created (imported first in main.tsx): the client reads the tokens from the

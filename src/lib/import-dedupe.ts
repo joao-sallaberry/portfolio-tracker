@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /** Business columns that identify a dividend event, ignoring ids and timestamps. */
 export const dividendKey = (row: { ticker: string; payment_date: string; event_type: string; quantity: number; net_value: number }) =>
   `${row.ticker}-${row.payment_date}-${row.event_type}-${row.quantity}-${row.net_value}`;

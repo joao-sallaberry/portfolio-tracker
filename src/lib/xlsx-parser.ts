@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import * as XLSX from 'xlsx';
 import { parseDateBR, parseDateBRShort, parseNumberBR, parseCurrencyBR, extractTicker, normalizeMovementType, normalizeTicker } from './formatters';
 

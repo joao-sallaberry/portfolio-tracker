@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Must run before the Supabase client is created (App imports it), see auth-recovery.ts
 import "./lib/auth-recovery";
 import { createRoot } from "react-dom/client";

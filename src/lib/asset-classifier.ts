@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * Asset classifier utility
  * Classifies tickers into: Ações, ETFs, FIIs or Outro

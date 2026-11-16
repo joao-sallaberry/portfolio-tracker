@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { expect, test as base, type Page } from '@playwright/test';
 import { YEAR, capitalReturnFiles, dividendsXlsx, movimentacaoXlsx, tradesCsv } from './support/fixtures';
 import { login, resetTestAccount } from './support/test-account';

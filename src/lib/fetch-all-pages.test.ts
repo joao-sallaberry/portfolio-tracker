@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { describe, it, expect, vi } from 'vitest';
 import { fetchAllPages, PAGE_SIZE } from './fetch-all-pages';
 

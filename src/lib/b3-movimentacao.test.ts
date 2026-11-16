@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { describe, it, expect } from 'vitest';
 import { MOVIMENTACAO_MARKET, parseMovimentacaoRows } from './b3-movimentacao';
 

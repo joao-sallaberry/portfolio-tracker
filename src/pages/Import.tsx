@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useState } from 'react';
 import { Wallet, TrendingUp, Trash2, ArrowLeftRight } from 'lucide-react';
 import { FileUploadCard } from '@/components/import/FileUploadCard';

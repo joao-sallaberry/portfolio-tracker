@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useState, useMemo } from 'react';
 import { useTradeOperations, type TradeOperation } from '@/hooks/use-portfolio-data';
 import { useUpdateTrade } from '@/hooks/use-portfolio-mutations';

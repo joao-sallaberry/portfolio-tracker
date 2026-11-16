@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useState, useMemo } from 'react';
 import { useDividendEvents } from '@/hooks/use-portfolio-data';
 import { usePagination } from '@/hooks/use-pagination';

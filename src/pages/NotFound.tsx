@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { Link, useLocation } from "react-router";
 import { useEffect } from "react";
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useTradeOperations } from '@/hooks/use-portfolio-data';
