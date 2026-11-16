@@ -64,7 +64,7 @@ export default function ResetPassword({ session, onPasswordUpdated }: ResetPassw
                 <CardContent>
                     {session ? (
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
+                            <div className="grid gap-2">
                                 <Label htmlFor="new-password">Nova senha</Label>
                                 <Input
                                     id="new-password"
@@ -76,7 +76,7 @@ export default function ResetPassword({ session, onPasswordUpdated }: ResetPassw
                                     minLength={MIN_PASSWORD_LENGTH}
                                 />
                             </div>
-                            <div className="space-y-2">
+                            <div className="grid gap-2">
                                 <Label htmlFor="confirm-password">Confirmar nova senha</Label>
                                 <Input
                                     id="confirm-password"

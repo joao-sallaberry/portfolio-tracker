@@ -58,7 +58,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               ? 'Uma nova versão do aplicativo foi publicada. Recarregue a página para continuar.'
               : 'Ocorreu um erro inesperado ao exibir esta página. Seus dados não foram alterados.'}
           </p>
-          {!staleChunk && <p className="break-words font-mono text-xs text-muted-foreground">{error.message}</p>}
+          {!staleChunk && <p className="wrap-break-word font-mono text-xs text-muted-foreground">{error.message}</p>}
           <div className="flex justify-center gap-2">
             <Button onClick={() => window.location.reload()}>Recarregar a página</Button>
             {!staleChunk && (

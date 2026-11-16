@@ -133,13 +133,13 @@ export default function ImpostoRenda() {
         </p>
       </div>
 
-      <Tabs defaultValue="vendas" className="space-y-6">
-        <TabsList>
+      <Tabs defaultValue="vendas" className="flex flex-col gap-6">
+        <TabsList className="self-start">
           <TabsTrigger value="vendas">Vendas por Classe</TabsTrigger>
           <TabsTrigger value="ativo">Por Ativo</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="vendas" className="space-y-6">
+        <TabsContent value="vendas" className="mt-0 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -369,7 +369,7 @@ export default function ImpostoRenda() {
           )}
         </TabsContent>
 
-        <TabsContent value="ativo" className="space-y-6">
+        <TabsContent value="ativo" className="mt-0 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

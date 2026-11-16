@@ -271,7 +271,7 @@ export default function Negociacoes() {
                       <TableHead className="text-right">Quantidade</TableHead>
                       <TableHead className="text-right">Preço</TableHead>
                       <TableHead className="text-right">Valor Total</TableHead>
-                      <TableHead className="min-w-[7.5rem] text-center whitespace-normal leading-tight">
+                      <TableHead className="min-w-30 text-center whitespace-normal leading-tight">
                         Excluir do IR
                       </TableHead>
                       <TableHead className="w-[50px]"></TableHead>
@@ -355,7 +355,7 @@ export default function Negociacoes() {
           {editingTrade && (
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="grid gap-2">
                   <Label>Data</Label>
                   <Input 
                     type="date" 
@@ -364,7 +364,7 @@ export default function Negociacoes() {
                     required
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="grid gap-2">
                   <Label>Tipo</Label>
                   <Select 
                     value={editingTrade.movement_type} 
@@ -387,7 +387,7 @@ export default function Negociacoes() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="grid gap-2">
                   <Label>Ativo</Label>
                   <Input 
                     value={editingTrade.ticker} 
@@ -395,14 +395,14 @@ export default function Negociacoes() {
                     required
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="grid gap-2">
                   <Label>Instituição</Label>
                   <Input 
                     value={editingTrade.institution} 
                     onChange={(e) => setEditingTrade({ ...editingTrade, institution: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="grid gap-2">
                   <Label>Quantidade</Label>
                   <Input 
                     type="number" 
@@ -412,7 +412,7 @@ export default function Negociacoes() {
                     required
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="grid gap-2">
                   <Label>Preço</Label>
                   <Input 
                     type="number" 
@@ -422,7 +422,7 @@ export default function Negociacoes() {
                     required
                   />
                 </div>
-                <div className="space-y-2 col-span-2">
+                <div className="grid gap-2 col-span-2">
                   <Label>Valor Total</Label>
                   <Input 
                     type="number" 

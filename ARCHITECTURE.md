@@ -27,7 +27,7 @@ Exact versions are in `package.json`; the table notes only what affects how the 
 | **Build** | [Vite](vite.config.ts) + `@vitejs/plugin-react` | Dev server on port `8080`, `@` → `./src` alias; the build fails without the `VITE_SUPABASE_*` env vars |
 | **UI** | React 19, TypeScript (strict) | Pure SPA, no SSR; pages are lazy-loaded (§6) |
 | **Routing** | `react-router` | Declarative `BrowserRouter` mode |
-| **Styling** | Tailwind CSS **3** + `tailwindcss-animate` | Theme in [index.css](src/index.css) (§11). Tailwind 4 not adopted, so shadcn output written for it must be mapped back (see `chart.tsx`) |
+| **Styling** | Tailwind CSS 4 (`@tailwindcss/vite`) + `tw-animate-css` | No `tailwind.config`: the theme lives in [index.css](src/index.css) (§11) |
 | **Components** | shadcn/ui (Radix) | Only the components in use live in `src/components/ui/`; add others with the shadcn CLI |
 | **Charts** | Recharts 3 | Through shadcn's `chart.tsx` |
 | **Data** | [Supabase](src/integrations/supabase/client.ts) (Postgres + Auth) + TanStack Query | Hosted project `vhihtrrnbxsxaqbrivam`; no local stack |
@@ -47,7 +47,6 @@ portfolio-tracker/
 ├── playwright.config.ts        # E2E: builds, serves on :4173, pt-BR / São Paulo timezone
 ├── e2e/                        # Playwright tests (auth, portfolio) against a dedicated test account
 │   └── support/                # Test account login/reset, generated sample statements
-├── tailwind.config.ts          # Tailwind theme extensions
 ├── .env.example                # Template for .env (Supabase URL + publishable key)
 ├── supabase/
 │   ├── config.toml             # Supabase CLI project id
@@ -79,7 +78,7 @@ portfolio-tracker/
     │   ├── import/             # FileUploadCard, PreviewTable, MovimentacaoPreview
     │   ├── ErrorBoundary.tsx   # Recovery screen when rendering throws
     │   ├── PaginationControls.tsx
-    │   └── ui/                 # shadcn/ui components (not modified, except chart.tsx)
+    │   └── ui/                 # shadcn/ui components (see CLAUDE.md)
     └── pages/
         ├── Auth.tsx            # Login / Sign-up / forgot password
         ├── ResetPassword.tsx   # New password after the reset email
@@ -404,7 +403,7 @@ Shows the authenticated user's email and a logout button (`supabase.auth.signOut
 
 ## 11. Design System
 
-Colors are CSS custom properties in [index.css](src/index.css) (an emerald palette: primary emerald, `success` green for buys, `destructive` red for sells and errors, `warning` amber, dark navy sidebar), exposed to Tailwind in `tailwind.config.ts`. It also defines a few utilities (`.gradient-primary`, `.gradient-card`, `.shadow-glow`, `.glass`). Dark-mode variables exist, but there is no toggle and no `ThemeProvider` is mounted.
+Colors are CSS custom properties in [index.css](src/index.css) (an emerald palette: primary emerald, `success` green for buys, `destructive` red for sells and errors, `warning` amber, dark navy sidebar), exposed to Tailwind by the `@theme` block in the same file (`--color-primary: hsl(var(--primary))`, …). It also defines a few utilities (`.gradient-primary`, `.gradient-card`, `.shadow-glow`, `.glass`). Dark-mode variables exist, but there is no toggle and no `ThemeProvider` is mounted.
 
 ---
 

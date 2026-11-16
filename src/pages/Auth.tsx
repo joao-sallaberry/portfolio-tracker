@@ -125,7 +125,7 @@ export default function Auth() {
                                         <p className="text-sm text-muted-foreground">
                                             Informe seu e-mail e enviaremos um link para você criar uma nova senha.
                                         </p>
-                                        <div className="space-y-2">
+                                        <div className="grid gap-2">
                                             <Label htmlFor="forgot-email">Email</Label>
                                             <Input
                                                 id="forgot-email"
@@ -147,7 +147,7 @@ export default function Auth() {
                                 )
                             ) : (
                                 <form onSubmit={handleLogin} className="space-y-4">
-                                    <div className="space-y-2">
+                                    <div className="grid gap-2">
                                         <Label htmlFor="email">Email</Label>
                                         <Input
                                             id="email"
@@ -158,7 +158,7 @@ export default function Auth() {
                                             required
                                         />
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="grid gap-2">
                                         <div className="flex items-center justify-between">
                                             <Label htmlFor="password">Senha</Label>
                                             <button
@@ -187,7 +187,7 @@ export default function Auth() {
 
                         <TabsContent value="signup">
                             <form onSubmit={handleSignUp} className="space-y-4">
-                                <div className="space-y-2">
+                                <div className="grid gap-2">
                                     <Label htmlFor="signup-email">Email</Label>
                                     <Input
                                         id="signup-email"
@@ -198,7 +198,7 @@ export default function Auth() {
                                         required
                                     />
                                 </div>
-                                <div className="space-y-2">
+                                <div className="grid gap-2">
                                     <Label htmlFor="signup-password">Senha</Label>
                                     <Input
                                         id="signup-password"
