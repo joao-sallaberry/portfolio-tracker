@@ -282,7 +282,7 @@ export default function Index() {
           </div>
           <ul className="flex flex-col">
             {allocation
-              .filter((a) => a.assetClass !== 'Outro' || a.positions > 0)
+              .filter((a) => (a.assetClass !== 'Outro' && a.assetClass !== 'ETF RF') || a.positions > 0)
               .map((a) => (
                 <li key={a.assetClass} className="flex items-center gap-3 border-b py-2.5 last:border-b-0">
                   <span className="size-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: ASSET_CLASS_COLORS[a.assetClass] }} />

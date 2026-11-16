@@ -33,7 +33,7 @@ const ITEMS_PER_PAGE = 50;
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { ASSET_CLASS_COLORS } from '@/lib/asset-class-colors';
+import { ASSET_CLASS_COLORS, ASSET_CLASS_LABELS } from '@/lib/asset-class-colors';
 
 
 
@@ -131,14 +131,9 @@ export default function Proventos() {
     );
   };
 
-  const chartConfig = {
-    'Ação': { label: 'Ações', color: ASSET_CLASS_COLORS['Ação'] },
-    'FII': { label: 'FIIs', color: ASSET_CLASS_COLORS['FII'] },
-    'ETF': { label: 'ETFs', color: ASSET_CLASS_COLORS['ETF'] },
-    'FI-Infra': { label: 'FI-Infra', color: ASSET_CLASS_COLORS['FI-Infra'] },
-    'FIP': { label: 'FIP', color: ASSET_CLASS_COLORS['FIP'] },
-    'Outro': { label: 'Outros', color: ASSET_CLASS_COLORS['Outro'] },
-  };
+  const chartConfig = Object.fromEntries(
+    ASSET_CLASSES.map((c) => [c, { label: ASSET_CLASS_LABELS[c], color: ASSET_CLASS_COLORS[c] }]),
+  );
 
   return (
     <div className="space-y-6">
@@ -248,24 +243,9 @@ export default function Proventos() {
                     />
                   }
                 />
-                {chartAssetClasses.includes('Ação') && (
-                  <Bar dataKey="Ação" stackId="a" fill={ASSET_CLASS_COLORS['Ação']} radius={[0, 0, 0, 0]} />
-                )}
-                {chartAssetClasses.includes('FII') && (
-                  <Bar dataKey="FII" stackId="a" fill={ASSET_CLASS_COLORS['FII']} radius={[0, 0, 0, 0]} />
-                )}
-                {chartAssetClasses.includes('ETF') && (
-                  <Bar dataKey="ETF" stackId="a" fill={ASSET_CLASS_COLORS['ETF']} radius={[0, 0, 0, 0]} />
-                )}
-                {chartAssetClasses.includes('FI-Infra') && (
-                  <Bar dataKey="FI-Infra" stackId="a" fill={ASSET_CLASS_COLORS['FI-Infra']} radius={[0, 0, 0, 0]} />
-                )}
-                {chartAssetClasses.includes('FIP') && (
-                  <Bar dataKey="FIP" stackId="a" fill={ASSET_CLASS_COLORS['FIP']} radius={[0, 0, 0, 0]} />
-                )}
-                {chartAssetClasses.includes('Outro') && (
-                  <Bar dataKey="Outro" stackId="a" fill={ASSET_CLASS_COLORS['Outro']} radius={[4, 4, 0, 0]} />
-                )}
+                {ASSET_CLASSES.filter((c) => chartAssetClasses.includes(c)).map((c, i, shown) => (
+                  <Bar key={c} dataKey={c} stackId="a" fill={ASSET_CLASS_COLORS[c]} radius={i === shown.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+                ))}
               </BarChart>
             </ChartContainer>
           )}
@@ -348,12 +328,9 @@ export default function Proventos() {
               </SelectTrigger>
               <SelectContent position="popper">
                 <SelectItem value="all">Todas classes</SelectItem>
-                <SelectItem value="Ação">Ação</SelectItem>
-                <SelectItem value="ETF">ETF</SelectItem>
-                <SelectItem value="FII">FII</SelectItem>
-                <SelectItem value="FI-Infra">FI-Infra</SelectItem>
-                <SelectItem value="FIP">FIP</SelectItem>
-                <SelectItem value="Outro">Outro</SelectItem>
+                {ASSET_CLASSES.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

@@ -73,7 +73,7 @@ describe('allocationByClass', () => {
       trade('2', 'MXRF11', '2025-01-01', 'BUY', 100, 10),
     ]);
     const allocation = allocationByClass(positions);
-    expect(allocation.map((a) => a.assetClass)).toEqual(['Ação', 'FII', 'ETF', 'FI-Infra', 'FIP', 'Outro']);
+    expect(allocation.map((a) => a.assetClass)).toEqual(['Ação', 'FII', 'ETF', 'ETF RF', 'FI-Infra', 'FIP', 'Outro']);
     expect(allocation[0]).toEqual({ assetClass: 'Ação', value: 3000, share: 0.75, positions: 1 });
     expect(allocation[1]).toEqual({ assetClass: 'FII', value: 1000, share: 0.25, positions: 1 });
     expect(allocation[2]).toEqual({ assetClass: 'ETF', value: 0, share: 0, positions: 0 });

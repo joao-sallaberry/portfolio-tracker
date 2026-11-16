@@ -272,20 +272,23 @@ Two "clear history" buttons delete all rows from `dividend_events` or `trade_ope
 Implemented in [asset-classifier.ts](src/lib/asset-classifier.ts).
 
 ```typescript
-type AssetClass = 'Ação' | 'ETF' | 'FII' | 'FI-Infra' | 'FIP' | 'Outro';
+type AssetClass = 'Ação' | 'ETF' | 'ETF RF' | 'FII' | 'FI-Infra' | 'FIP' | 'Outro';
 ```
 
-Five CSV files under `src/data/` are imported at build time (Vite `?raw`) and parsed into `Set<string>` lookups keyed on the **first 4 characters** of each ticker:
+Six CSV files under `src/data/` are imported at build time (Vite `?raw`) and parsed into `Set<string>` lookups keyed on the **first 4 characters** of each ticker:
 
 | CSV File | Asset Class | Delimiter | Ticker Column Index |
 |---|---|---|---|
 | `Acoes.csv` | Ação | `,` | 0 |
-| `ETFs.csv` | ETF | `;` | 2 |
+| `ETFs.csv` | ETF (equity: B3's list of renda variável ETFs) | `;` | 2 |
+| `ETFs-RF.csv` | ETF RF (fixed income) | `;` | 1 (name in column 0) |
 | `FIIs.csv` | FII | `;` | 2 |
 | `FI-Infras.csv` | FI-Infra | `;` | 2 |
 | `FIPs.csv` | FIP | `;` | 2 |
 
-`classifyAsset(ticker)` checks ETF → FII → FI-Infra → FIP → Ação → fallback `"Outro"`. ETFs come first because some ETF base codes could collide with stock base codes.
+`classifyAsset(ticker)` checks ETF → ETF RF → FII → FI-Infra → FIP → Ação → fallback `"Outro"`. ETFs come first because some ETF base codes could collide with stock base codes.
+
+`ETFs-RF.csv` lists the fixed-income ETFs traded on B3 (October 2026: the 64 counted by marcelofayh.com.br's list plus GOAT11, HYBR11, BNDX11, USDB11 and CLOB11 from Renova Invest's, each checked against brapi's ticker list or the fund's page). Names are filled where a source gave the fund's name. KDIF11 (incentivized debentures) stays in `FI-Infras.csv`, since it is exempt like FI-Infra. FIXX11 (a US T-bill ETF) is in B3's renda variável list and stays an `ETF`. Fixed-income ETFs are taxed at source (25%/20%/15% by the portfolio's average maturity, withheld by the fund), not through a monthly DARF, so `ETF RF` is in no IR tax group (§9.6) and its gains and losses don't offset those of stocks.
 
 `getAssetName(ticker)` reads the name column of the same files (column 1): the company name for a stock ("Petrobras", by full ticker, then by base), the short fund name for a fund ("FII MAXI REN", by base), or `null`. The fund CSVs are Latin-1 but are read as UTF-8, so names whose accents got mangled are skipped.
 
@@ -378,6 +381,8 @@ Two tabs, both built on the shared cost basis (§9.1). The logic of both lives i
 | Ações e ETFs | 15% | Ação, ETF |
 | FIIs | 20% | FII |
 | Isentos | 0% | FI-Infra, FIP |
+
+`ETF RF` and `Outro` are in no group: fixed-income ETFs are taxed at source (§8).
 
 For the selected group and year:
 

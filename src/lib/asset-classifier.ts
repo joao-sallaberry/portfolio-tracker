@@ -2,21 +2,23 @@
 
 /**
  * Asset classifier utility
- * Classifies tickers into: Ações, ETFs, FIIs or Outro
+ * Classifies tickers into: Ações, FIIs, ETFs (equity and fixed income), FI-Infra, FIPs or Outro
  * Data sourced from CSV files in src/data/
  */
 
 // Import raw CSV data (Vite handles this with ?raw suffix)
 import acoesRaw from '@/data/Acoes.csv?raw';
 import etfsRaw from '@/data/ETFs.csv?raw';
+import etfsRfRaw from '@/data/ETFs-RF.csv?raw';
 import fiisRaw from '@/data/FIIs.csv?raw';
 import fiInfrasRaw from '@/data/FI-Infras.csv?raw';
 import fipsRaw from '@/data/FIPs.csv?raw';
 
-export type AssetClass = 'Ação' | 'ETF' | 'FII' | 'FI-Infra' | 'FIP' | 'Outro';
+/** 'ETF' is an equity ETF, 'ETF RF' a fixed-income one (taxed at source, outside the IR page's groups). */
+export type AssetClass = 'Ação' | 'ETF' | 'ETF RF' | 'FII' | 'FI-Infra' | 'FIP' | 'Outro';
 
 /** Every class, in display order. */
-export const ASSET_CLASSES: AssetClass[] = ['Ação', 'FII', 'ETF', 'FI-Infra', 'FIP', 'Outro'];
+export const ASSET_CLASSES: AssetClass[] = ['Ação', 'FII', 'ETF', 'ETF RF', 'FI-Infra', 'FIP', 'Outro'];
 
 // Parse CSV and extract ticker codes (base 4-char codes)
 function extractTickerBases(csvContent: string, tickerColumn: number, delimiter: string): Set<string> {
@@ -52,6 +54,7 @@ function extractTickerBases(csvContent: string, tickerColumn: number, delimiter:
 // Build lookup sets from CSV data
 const acoesBases = extractTickerBases(acoesRaw, 0, ',');
 const etfsBases = extractTickerBases(etfsRaw, 2, ';');
+const etfsRfBases = extractTickerBases(etfsRfRaw, 1, ';');
 const fiisBases = extractTickerBases(fiisRaw, 2, ';');
 const fiInfrasBases = extractTickerBases(fiInfrasRaw, 2, ';');
 const fipsBases = extractTickerBases(fipsRaw, 2, ';');
@@ -80,6 +83,7 @@ const fundNames = new Map([
   ...extractNames(fiInfrasRaw, 2, 1, ';', true),
   ...extractNames(fiisRaw, 2, 1, ';', true),
   ...extractNames(etfsRaw, 2, 1, ';', true),
+  ...extractNames(etfsRfRaw, 1, 0, ';', true),
 ]);
 
 /** Company or fund name of a ticker ("Petrobras", "FII MAXI REN"), or null when unknown. */
@@ -92,7 +96,7 @@ export function getAssetName(ticker: string): string | null {
 /**
  * Classify a ticker into its asset class
  * @param ticker - The ticker symbol (e.g., "PETR4", "XPML11", "BOVA11")
- * @returns The asset class: 'Ação', 'ETF', 'FII', or 'Outro'
+ * @returns The asset class, or 'Outro' when the ticker is in no list
  */
 export function classifyAsset(ticker: string): AssetClass {
   if (!ticker) return 'Outro';
@@ -102,6 +106,7 @@ export function classifyAsset(ticker: string): AssetClass {
 
   // Check each category (order matters - more specific funds first)
   if (etfsBases.has(base)) return 'ETF';
+  if (etfsRfBases.has(base)) return 'ETF RF';
   if (fiisBases.has(base)) return 'FII';
   if (fiInfrasBases.has(base)) return 'FI-Infra';
   if (fipsBases.has(base)) return 'FIP';

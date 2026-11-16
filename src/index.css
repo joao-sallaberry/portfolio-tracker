@@ -72,6 +72,7 @@
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
   --color-chart-6: hsl(var(--chart-6));
+  --color-chart-7: hsl(var(--chart-7));
 
   /* Dark emerald panel for the headline figure of a page */
   --color-hero: hsl(158 47% 11%);
@@ -234,6 +235,7 @@
     --chart-4: 262 45% 62%;
     --chart-5: 24 70% 55%;
     --chart-6: 90 6% 65%;
+    --chart-7: 340 55% 58%;
   }
 
   .dark {
@@ -285,6 +287,8 @@
     --chart-3: 262 83% 65%;
     --chart-4: 38 92% 55%;
     --chart-5: 0 84% 65%;
+    --chart-6: 90 6% 60%;
+    --chart-7: 340 70% 68%;
   }
 }
 
