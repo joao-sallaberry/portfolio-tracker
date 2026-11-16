@@ -158,7 +158,7 @@ export default function Proventos() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardDescription>Total em Proventos</CardDescription>
             <CardTitle className="flex items-center gap-2 text-2xl text-primary">
               <Wallet className="h-5 w-5" />
@@ -167,7 +167,7 @@ export default function Proventos() {
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardDescription>Proventos em {currentYear}</CardDescription>
             <CardTitle className="text-2xl">
               {isLoading ? <Skeleton className="h-8 w-32" /> : formatCurrencyBRL(dividendsThisYear)}
@@ -175,7 +175,7 @@ export default function Proventos() {
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardDescription>Total de Eventos</CardDescription>
             <CardTitle className="text-2xl">
               {isLoading ? <Skeleton className="h-8 w-16" /> : filteredDividends.length}
@@ -183,7 +183,7 @@ export default function Proventos() {
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardDescription>Tipos de Evento</CardDescription>
             <CardTitle className="text-2xl">
               {isLoading ? <Skeleton className="h-8 w-16" /> : eventTypes.length}
@@ -195,7 +195,7 @@ export default function Proventos() {
       {/* Monthly Dividends Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Proventos por Mês</CardTitle>
+          <CardTitle className="text-2xl">Proventos por Mês</CardTitle>
           <CardDescription>Distribuição mensal de proventos por classe de ativo</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -281,7 +281,7 @@ export default function Proventos() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Histórico de Proventos</CardTitle>
+          <CardTitle className="text-2xl">Histórico de Proventos</CardTitle>
           <CardDescription>
             {filteredDividends.length} eventos {hasActiveFilters ? 'filtrados' : 'registrados'}
           </CardDescription>
@@ -291,10 +291,10 @@ export default function Proventos() {
           <div className="flex flex-wrap items-center gap-3">
             {/* Date Preset Filter */}
             <Select value={datePreset} onValueChange={handleDatePresetChange}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="min-w-[160px]">
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper">
                 <SelectItem value="all">Todo o período</SelectItem>
                 <SelectItem value="current_month">Mês atual</SelectItem>
                 <SelectItem value="last_month">Mês passado</SelectItem>
@@ -324,10 +324,10 @@ export default function Proventos() {
 
             {/* Ticker Filter */}
             <Select value={tickerFilter} onValueChange={setTickerFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="min-w-[140px]">
                 <SelectValue placeholder="Ativo" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper">
                 <SelectItem value="all">Todos os ativos</SelectItem>
                 {uniqueTickers.map(ticker => (
                   <SelectItem key={ticker} value={ticker}>{ticker}</SelectItem>
@@ -337,10 +337,10 @@ export default function Proventos() {
 
             {/* Event Type Filter */}
             <Select value={eventType} onValueChange={setEventType}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="min-w-[180px]">
                 <SelectValue placeholder="Tipo de evento" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper">
                 <SelectItem value="all">Todos os tipos</SelectItem>
                 {eventTypes.map(type => (
                   <SelectItem key={type} value={type}>{type}</SelectItem>
@@ -350,10 +350,10 @@ export default function Proventos() {
 
             {/* Asset Class Filter */}
             <Select value={assetClass} onValueChange={setAssetClass}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="min-w-[140px]">
                 <SelectValue placeholder="Classe" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper">
                 <SelectItem value="all">Todas classes</SelectItem>
                 <SelectItem value="Ação">Ação</SelectItem>
                 <SelectItem value="ETF">ETF</SelectItem>

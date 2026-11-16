@@ -132,7 +132,7 @@ export default function Negociacoes() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardDescription>Total em Compras</CardDescription>
             <CardTitle className="flex items-center gap-2 text-2xl text-success">
               <TrendingUp className="h-5 w-5" />
@@ -141,7 +141,7 @@ export default function Negociacoes() {
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardDescription>Total em Vendas</CardDescription>
             <CardTitle className="flex items-center gap-2 text-2xl text-destructive">
               <TrendingDown className="h-5 w-5" />
@@ -150,7 +150,7 @@ export default function Negociacoes() {
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardDescription>Total de Operações</CardDescription>
             <CardTitle className="text-2xl">
               {isLoading ? <Skeleton className="h-8 w-16" /> : filteredTrades.length}
@@ -163,7 +163,7 @@ export default function Negociacoes() {
         <CardHeader>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>Histórico de Negociações</CardTitle>
+              <CardTitle className="text-2xl">Histórico de Negociações</CardTitle>
               <CardDescription>
                 {filteredTrades.length} operações registradas
               </CardDescription>
@@ -172,10 +172,10 @@ export default function Negociacoes() {
             <div className="flex flex-wrap items-center gap-2">
               {/* Type Filter */}
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="min-w-[140px]">
                   <SelectValue placeholder="Tipo" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   <SelectItem value="all">Todos os tipos</SelectItem>
                   {uniqueTypes.map(type => (
                     <SelectItem key={type} value={type}>{getTypeLabel(type)}</SelectItem>
@@ -185,10 +185,10 @@ export default function Negociacoes() {
 
               {/* Ticker Filter */}
               <Select value={tickerFilter} onValueChange={setTickerFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="min-w-[140px]">
                   <SelectValue placeholder="Ativo" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   <SelectItem value="all">Todos os ativos</SelectItem>
                   {uniqueTickers.map(ticker => (
                     <SelectItem key={ticker} value={ticker}>{ticker}</SelectItem>
@@ -198,10 +198,10 @@ export default function Negociacoes() {
 
               {/* Class Filter */}
               <Select value={classFilter} onValueChange={setClassFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="min-w-[140px]">
                   <SelectValue placeholder="Classe" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   <SelectItem value="all">Todas as classes</SelectItem>
                   {uniqueClasses.map(cls => (
                     <SelectItem key={cls} value={cls}>{cls}</SelectItem>
@@ -366,10 +366,10 @@ export default function Negociacoes() {
                       movement_type_raw: getTypeLabel(val) 
                     })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="BUY">Compra</SelectItem>
                       <SelectItem value="SELL">Venda</SelectItem>
                       <SelectItem value="BONUS">Bonificação</SelectItem>

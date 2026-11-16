@@ -133,16 +133,16 @@ export default function ImpostoRenda() {
         </p>
       </div>
 
-      <Tabs defaultValue="vendas" className="flex flex-col gap-6">
-        <TabsList className="self-start">
+      <Tabs defaultValue="vendas" className="gap-6">
+        <TabsList>
           <TabsTrigger value="vendas">Vendas por Classe</TabsTrigger>
           <TabsTrigger value="ativo">Por Ativo</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="vendas" className="mt-0 space-y-6">
+        <TabsContent value="vendas" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-2xl">
                 <Calculator className="h-5 w-5" />
                 Vendas e Impostos por Classe de Ativos
               </CardTitle>
@@ -153,7 +153,7 @@ export default function ImpostoRenda() {
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="Grupo Tributário" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper">
                     {TAX_GROUPS.map((group) => (
                       <SelectItem key={group.label} value={group.label}>
                         {group.label}
@@ -166,7 +166,7 @@ export default function ImpostoRenda() {
                   <SelectTrigger className="w-32">
                     <SelectValue placeholder="Ano" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper">
                     {availableSalesYears.map((year) => (
                       <SelectItem key={year} value={year.toString()}>
                         {year}
@@ -216,8 +216,8 @@ export default function ImpostoRenda() {
             <>
               {/* Summary Cards */}
               <div className={cn("grid grid-cols-1 gap-4", selectedTaxGroup === 'Ações e ETFs' ? "md:grid-cols-4" : "md:grid-cols-3")}>
-                <Card>
-                  <CardHeader className="pb-2">
+                <Card className="gap-2">
+                  <CardHeader>
                     <CardTitle className="text-base font-medium text-muted-foreground">
                       Total de Vendas
                     </CardTitle>
@@ -227,8 +227,8 @@ export default function ImpostoRenda() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader className="pb-2">
+                <Card className="gap-2">
+                  <CardHeader>
                     <CardTitle className="text-base font-medium text-muted-foreground flex items-center gap-2">
                       {grandTotals.total_profit_loss >= 0 ? (
                         <TrendingUp className="h-4 w-4 text-green-500" />
@@ -246,8 +246,8 @@ export default function ImpostoRenda() {
                 </Card>
 
                 {selectedTaxGroup === 'Ações e ETFs' && (
-                  <Card>
-                    <CardHeader className="pb-2">
+                  <Card className="gap-2">
+                    <CardHeader>
                       <CardTitle className="text-base font-medium text-muted-foreground flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-green-500" />
                         Lucro Isento (Vendas &lt; 20k)
@@ -261,8 +261,8 @@ export default function ImpostoRenda() {
                   </Card>
                 )}
 
-                <Card>
-                  <CardHeader className="pb-2">
+                <Card className="gap-2">
+                  <CardHeader>
                     <CardTitle className="text-base font-medium text-muted-foreground">
                       Imposto Devido
                     </CardTitle>
@@ -277,7 +277,7 @@ export default function ImpostoRenda() {
               {salesByTaxGroup.map((monthData) => (
                 <Card key={monthData.monthKey}>
                   <CardHeader>
-                    <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-2xl">
                       <div className="flex flex-col gap-1">
                         <span className="capitalize">{monthData.month} {monthData.year}</span>
                         {monthData.has_exemption && (
@@ -369,10 +369,10 @@ export default function ImpostoRenda() {
           )}
         </TabsContent>
 
-        <TabsContent value="ativo" className="mt-0 space-y-6">
+        <TabsContent value="ativo" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-2xl">
                 <Receipt className="h-5 w-5" />
                 Selecione um Ativo
               </CardTitle>
@@ -382,7 +382,7 @@ export default function ImpostoRenda() {
                 <SelectTrigger className="w-full max-w-xs">
                   <SelectValue placeholder="Escolha um ativo..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   {tickers.map((ticker) => (
                     <SelectItem key={ticker} value={ticker}>
                       {ticker}
@@ -396,7 +396,7 @@ export default function ImpostoRenda() {
           {selectedTicker && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-2xl">
                   <Calendar className="h-5 w-5" />
                   Resumo Anual - {selectedTicker}
                 </CardTitle>
@@ -406,7 +406,7 @@ export default function ImpostoRenda() {
                   <SelectTrigger className="w-full max-w-xs">
                     <SelectValue placeholder="Escolha um ano..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper">
                     {availableYears.map((year) => (
                       <SelectItem key={year} value={year.toString()}>
                         {year}
@@ -417,8 +417,8 @@ export default function ImpostoRenda() {
 
                 {yearSnapshots && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card className="bg-muted/50">
-                      <CardHeader className="pb-2">
+                    <Card className="gap-2 bg-muted/50">
+                      <CardHeader>
                         <CardTitle className="text-base font-medium">
                           31/12/{yearSnapshots.year - 1}
                         </CardTitle>
@@ -439,8 +439,8 @@ export default function ImpostoRenda() {
                       </CardContent>
                     </Card>
 
-                    <Card className="bg-muted/50">
-                      <CardHeader className="pb-2">
+                    <Card className="gap-2 bg-muted/50">
+                      <CardHeader>
                         <CardTitle className="text-base font-medium">
                           31/12/{yearSnapshots.year}
                         </CardTitle>
@@ -469,7 +469,7 @@ export default function ImpostoRenda() {
           {selectedTicker && (
             <Card>
               <CardHeader>
-                <CardTitle>Operações - {selectedTicker}</CardTitle>
+                <CardTitle className="text-2xl">Operações - {selectedTicker}</CardTitle>
               </CardHeader>
               <CardContent>
                 {tradesWithRunning.length === 0 ? (

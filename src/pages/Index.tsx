@@ -124,8 +124,8 @@ export default function Index() {
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-2">
+        <Card className="gap-2 overflow-hidden">
+          <CardHeader>
             <CardDescription className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
               Total Investido
@@ -141,8 +141,8 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-2">
+        <Card className="gap-2 overflow-hidden">
+          <CardHeader>
             <CardDescription className="flex items-center gap-2">
               <Wallet className="h-4 w-4" />
               Total em Proventos
@@ -158,8 +158,8 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-2">
+        <Card className="gap-2 overflow-hidden">
+          <CardHeader>
             <CardDescription className="flex items-center gap-2">
               <Wallet className="h-4 w-4" />
               Proventos em {currentYear}
@@ -175,8 +175,8 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-2">
+        <Card className="gap-2 overflow-hidden">
+          <CardHeader>
             <CardDescription className="flex items-center gap-2">
               <Activity className="h-4 w-4" />
               Operações em {currentYear}
@@ -198,7 +198,7 @@ export default function Index() {
         {/* Monthly Dividends */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-2xl">
               <BarChart3 className="h-5 w-5 text-primary" />
               Proventos por Mês
             </CardTitle>
@@ -250,7 +250,7 @@ export default function Index() {
         {/* Portfolio Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-2xl">
               <PieChart className="h-5 w-5 text-primary" />
               Distribuição do Portfólio
             </CardTitle>
@@ -299,7 +299,7 @@ export default function Index() {
       {/* Top Tickers by Dividends */}
       <Card>
         <CardHeader>
-          <CardTitle>Proventos por Ativo (Top 8)</CardTitle>
+          <CardTitle className="text-2xl">Proventos por Ativo (Top 8)</CardTitle>
           <CardDescription>Maiores pagadores de proventos</CardDescription>
         </CardHeader>
         <CardContent>

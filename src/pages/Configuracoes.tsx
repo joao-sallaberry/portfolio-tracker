@@ -54,7 +54,7 @@ export default function Configuracoes() {
             <div className="grid gap-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Perfil</CardTitle>
+                        <CardTitle className="text-2xl">Perfil</CardTitle>
                         <CardDescription>Informações da sua conta</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">

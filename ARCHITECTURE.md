@@ -28,7 +28,7 @@ Exact versions are in `package.json`; the table notes only what affects how the 
 | **UI** | React 19, TypeScript (strict) | Pure SPA, no SSR; pages are lazy-loaded (§6) |
 | **Routing** | `react-router` | Declarative `BrowserRouter` mode |
 | **Styling** | Tailwind CSS 4 (`@tailwindcss/vite`) + `tw-animate-css` | No `tailwind.config`: the theme lives in [index.css](src/index.css) (§11) |
-| **Components** | shadcn/ui (Radix) | Only the components in use live in `src/components/ui/`; add others with the shadcn CLI |
+| **Components** | shadcn/ui `new-york` (`radix-ui`) | Only the components in use live in `src/components/ui/`; add others with the shadcn CLI |
 | **Charts** | Recharts 3 | Through shadcn's `chart.tsx` |
 | **Data** | [Supabase](src/integrations/supabase/client.ts) (Postgres + Auth) + TanStack Query | Hosted project `vhihtrrnbxsxaqbrivam`; no local stack |
 | **File parsing** | [SheetJS](src/lib/xlsx-parser.ts) | Installed from `cdn.sheetjs.com` (the npm registry copy is outdated) |

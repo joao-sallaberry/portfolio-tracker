@@ -73,7 +73,7 @@ export default function Posicao() {
     return (
       <Card key={className}>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-2xl">
             <Briefcase className="h-5 w-5" />
             {className}
           </CardTitle>
@@ -124,7 +124,7 @@ export default function Posicao() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-2xl">
             <Briefcase className="h-5 w-5" />
             Portfólio Total
           </CardTitle>
