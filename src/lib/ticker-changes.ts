@@ -5,7 +5,8 @@ import tickerChangesRaw from '@/data/ticker-changes.csv?raw';
 /**
  * Ticker changes (renames, fund mergers): the rows stay in the database as imported, so re-imports
  * still deduplicate, and are mapped to the current ticker when read. `factor` is how many new
- * shares each old share became (1 for a plain rename).
+ * shares each old share became (1 for a plain rename); the CSV's `data` column (the date of the
+ * change) is for reference only.
  */
 export interface TickerChange {
   from: string;

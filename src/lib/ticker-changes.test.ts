@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { applyTickerChange, applyTickerChangeToDividend, parseTickerChanges, resolveTicker } from './ticker-changes';
 import { calculatePositions } from './portfolio-calculations';
 import { classifyAsset } from './asset-classifier';
+import tickerChangesRaw from '@/data/ticker-changes.csv?raw';
 
 const changes = parseTickerChanges('antigo;novo;fator\nAAAA3;BBBB3;1\nBBBB3;CCCC3;0,5\nOLD11;NEW11;\n');
 
@@ -56,5 +57,18 @@ describe('ticker changes', () => {
   it('maps LGCP11 to INLG11, a FII', () => {
     expect(resolveTicker('LGCP11')).toEqual({ ticker: 'INLG11', factor: 1 });
     expect(classifyAsset('INLG11')).toBe('FII');
+  });
+
+  it('follows the bundled chains with their factors', () => {
+    expect(resolveTicker('ELET5')).toEqual({ ticker: 'AXIA3', factor: 1.1 });
+    expect(resolveTicker('PRGA3')).toEqual({ ticker: 'MBRF3', factor: 0.8521 });
+    expect(resolveTicker('VVAR3')).toEqual({ ticker: 'BHIA3', factor: 1 });
+  });
+
+  it('every bundled change ends in a classified ticker, except a BDR, a Fiagro and delisted ones', () => {
+    const unclassified = [...parseTickerChanges(tickerChangesRaw).keys()]
+      .map((from) => resolveTicker(from).ticker)
+      .filter((to) => classifyAsset(to) === 'Outro');
+    expect([...new Set(unclassified)].sort()).toEqual(['ENAT3', 'FTCA11', 'INBR32', 'ZAMP3']);
   });
 });
