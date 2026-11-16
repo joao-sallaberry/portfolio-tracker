@@ -72,7 +72,7 @@ portfolio-tracker/
     │   ├── auth-recovery.ts    # Catches password-recovery links before the router loads (no tests)
     │   └── utils.ts            # `cn()` helper (clsx + tailwind-merge)
     ├── data/                   # Known tickers per asset class (CSV)
-    ├── hooks/                  # use-portfolio-data (shared queries), use-portfolio-mutations (every write), use-pagination, use-mobile, use-toast
+    ├── hooks/                  # use-portfolio-data (shared queries), use-portfolio-mutations (every write), use-pagination, use-mobile
     ├── components/
     │   ├── layout/             # AppLayout (sidebar + header), AppSidebar
     │   ├── import/             # FileUploadCard, PreviewTable, MovimentacaoPreview

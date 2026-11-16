@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { TrendingUp, TrendingDown, X, Pencil } from 'lucide-react';
 import { PaginationControls } from '@/components/PaginationControls';
 import { format } from 'date-fns';
@@ -33,7 +33,6 @@ type EditableTrade = Omit<TradeOperation, 'quantity' | 'price' | 'total_value'> 
 };
 
 export default function Negociacoes() {
-  const { toast } = useToast();
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -57,11 +56,7 @@ export default function Negociacoes() {
 
   const saveEditingTrade = (trade: EditableTrade) => {
     const onError = (message: string) => {
-      toast({
-        title: "Erro",
-        description: `Não foi possível atualizar a negociação. ${message}`,
-        variant: "destructive",
-      });
+      toast.error(`Não foi possível atualizar a negociação. ${message}`);
     };
     const { id, trade_date, movement_type, movement_type_raw, ticker, institution } = trade;
     const quantity = parseNumberInput(trade.quantity);
@@ -74,10 +69,7 @@ export default function Negociacoes() {
     const changes = { trade_date, movement_type, movement_type_raw, ticker, institution, quantity, price, total_value };
     updateTrade.mutate({ id, changes }, {
       onSuccess: () => {
-        toast({
-          title: "Negociação atualizada",
-          description: "A negociação foi salva com sucesso.",
-        });
+        toast.success('Negociação atualizada.');
         setEditingTrade(null);
       },
       onError: (error) => onError(error.message),
