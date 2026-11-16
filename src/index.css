@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@500;600&display=swap');
 
 @import 'tailwindcss';
 
@@ -20,8 +20,9 @@
 }
 
 @theme {
-  --font-sans: DM Sans, system-ui, sans-serif;
-  --font-mono: JetBrains Mono, monospace;
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-display: 'Inter Tight', Inter, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
@@ -70,7 +71,9 @@
   --color-chart-3: hsl(var(--chart-3));
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
+  --color-chart-6: hsl(var(--chart-6));
 
+  --radius-xl: calc(var(--radius) + 4px);
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
@@ -174,57 +177,59 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    /* "Livro-razão": warm neutral ground, white surfaces, one emerald accent */
+    --background: 60 16% 95%;
+    --foreground: 223 15% 9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 223 15% 9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 223 15% 9%;
 
-    --primary: 160 84% 39%;
+    --primary: 161 82% 24%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 28% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 60 11% 90%;
+    --secondary-foreground: 223 15% 9%;
 
-    --muted: 210 20% 94%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 60 17% 93%;
+    --muted-foreground: 219 10% 41%;
 
-    --accent: 160 60% 94%;
-    --accent-foreground: 160 84% 25%;
+    --accent: 146 30% 93%;
+    --accent-foreground: 161 82% 24%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 4 77% 40%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 76% 36%;
+    --success: 145 71% 28%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 0%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 160 84% 39%;
+    --border: 60 10% 88%;
+    --input: 60 8% 83%;
+    --ring: 161 82% 24%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 215 28% 17%;
-    --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 160 84% 50%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 13% 28%;
+    --sidebar-primary: 161 82% 24%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 28% 22%;
-    --sidebar-accent-foreground: 210 20% 95%;
-    --sidebar-border: 215 28% 25%;
-    --sidebar-ring: 160 84% 50%;
+    --sidebar-accent: 146 30% 93%;
+    --sidebar-accent-foreground: 161 82% 24%;
+    --sidebar-border: 60 10% 88%;
+    --sidebar-ring: 161 82% 24%;
 
-    /* Chart colors */
-    --chart-1: 160 84% 39%;
-    --chart-2: 199 89% 48%;
-    --chart-3: 262 83% 58%;
-    --chart-4: 38 92% 50%;
-    --chart-5: 0 84% 60%;
+    /* Asset classes (src/lib/asset-class-colors.ts): Ação, FII, ETF, FI-Infra, FIP, Outro */
+    --chart-1: 161 82% 24%;
+    --chart-2: 215 74% 74%;
+    --chart-3: 45 67% 47%;
+    --chart-4: 262 45% 62%;
+    --chart-5: 24 70% 55%;
+    --chart-6: 90 6% 65%;
   }
 
   .dark {
@@ -293,6 +298,8 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Figures line up in tables and cards */
+    font-variant-numeric: tabular-nums;
   }
 
   h1, h2, h3, h4, h5, h6 {

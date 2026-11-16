@@ -13,11 +13,13 @@ export function AppLayout({ children }: AppLayoutProps) {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border/50 px-6">
-          <SidebarTrigger className="-ml-2" />
+        {/* On a phone the sidebar is a drawer; on larger screens it stays open */}
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4 md:hidden">
+          <SidebarTrigger className="-ml-1" />
+          <span className="font-display font-bold tracking-tight">Portfólio</span>
         </header>
-        <main className="flex-1 overflow-auto p-6">
-          {children}
+        <main className="flex-1 overflow-auto px-4 py-6 md:px-10 md:py-8">
+          <div className="mx-auto w-full max-w-[1240px]">{children}</div>
         </main>
       </SidebarInset>
     </SidebarProvider>

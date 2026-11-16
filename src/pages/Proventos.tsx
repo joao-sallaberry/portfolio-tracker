@@ -33,16 +33,9 @@ const ITEMS_PER_PAGE = 50;
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis } from 'recharts';
+import { ASSET_CLASS_COLORS } from '@/lib/asset-class-colors';
 
 
-const CHART_COLORS: Record<AssetClass, string> = {
-  'Ação': 'hsl(160 84% 39%)',
-  'FII': 'hsl(199 89% 48%)',
-  'ETF': 'hsl(262 83% 58%)',
-  'FI-Infra': 'hsl(340 82% 52%)',
-  'FIP': 'hsl(24 95% 53%)',
-  'Outro': 'hsl(38 92% 50%)',
-};
 
 interface SortableHeadProps {
   label: string;
@@ -139,12 +132,12 @@ export default function Proventos() {
   };
 
   const chartConfig = {
-    'Ação': { label: 'Ações', color: CHART_COLORS['Ação'] },
-    'FII': { label: 'FIIs', color: CHART_COLORS['FII'] },
-    'ETF': { label: 'ETFs', color: CHART_COLORS['ETF'] },
-    'FI-Infra': { label: 'FI-Infra', color: CHART_COLORS['FI-Infra'] },
-    'FIP': { label: 'FIP', color: CHART_COLORS['FIP'] },
-    'Outro': { label: 'Outros', color: CHART_COLORS['Outro'] },
+    'Ação': { label: 'Ações', color: ASSET_CLASS_COLORS['Ação'] },
+    'FII': { label: 'FIIs', color: ASSET_CLASS_COLORS['FII'] },
+    'ETF': { label: 'ETFs', color: ASSET_CLASS_COLORS['ETF'] },
+    'FI-Infra': { label: 'FI-Infra', color: ASSET_CLASS_COLORS['FI-Infra'] },
+    'FIP': { label: 'FIP', color: ASSET_CLASS_COLORS['FIP'] },
+    'Outro': { label: 'Outros', color: ASSET_CLASS_COLORS['Outro'] },
   };
 
   return (
@@ -214,7 +207,7 @@ export default function Proventos() {
                 >
                   <div
                     className="h-3 w-3 rounded-sm"
-                    style={{ backgroundColor: CHART_COLORS[cls] }}
+                    style={{ backgroundColor: ASSET_CLASS_COLORS[cls] }}
                   />
                   {cls}
                 </label>
@@ -256,22 +249,22 @@ export default function Proventos() {
                   }
                 />
                 {chartAssetClasses.includes('Ação') && (
-                  <Bar dataKey="Ação" stackId="a" fill={CHART_COLORS['Ação']} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="Ação" stackId="a" fill={ASSET_CLASS_COLORS['Ação']} radius={[0, 0, 0, 0]} />
                 )}
                 {chartAssetClasses.includes('FII') && (
-                  <Bar dataKey="FII" stackId="a" fill={CHART_COLORS['FII']} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="FII" stackId="a" fill={ASSET_CLASS_COLORS['FII']} radius={[0, 0, 0, 0]} />
                 )}
                 {chartAssetClasses.includes('ETF') && (
-                  <Bar dataKey="ETF" stackId="a" fill={CHART_COLORS['ETF']} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="ETF" stackId="a" fill={ASSET_CLASS_COLORS['ETF']} radius={[0, 0, 0, 0]} />
                 )}
                 {chartAssetClasses.includes('FI-Infra') && (
-                  <Bar dataKey="FI-Infra" stackId="a" fill={CHART_COLORS['FI-Infra']} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="FI-Infra" stackId="a" fill={ASSET_CLASS_COLORS['FI-Infra']} radius={[0, 0, 0, 0]} />
                 )}
                 {chartAssetClasses.includes('FIP') && (
-                  <Bar dataKey="FIP" stackId="a" fill={CHART_COLORS['FIP']} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="FIP" stackId="a" fill={ASSET_CLASS_COLORS['FIP']} radius={[0, 0, 0, 0]} />
                 )}
                 {chartAssetClasses.includes('Outro') && (
-                  <Bar dataKey="Outro" stackId="a" fill={CHART_COLORS['Outro']} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Outro" stackId="a" fill={ASSET_CLASS_COLORS['Outro']} radius={[4, 4, 0, 0]} />
                 )}
               </BarChart>
             </ChartContainer>

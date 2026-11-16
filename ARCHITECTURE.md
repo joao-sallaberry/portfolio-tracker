@@ -403,7 +403,7 @@ Shows the authenticated user's email and a logout button (`supabase.auth.signOut
 
 ## 11. Design System
 
-Colors are CSS custom properties in [index.css](src/index.css) (an emerald palette: primary emerald, `success` green for buys, `destructive` red for sells and errors, `warning` amber, dark navy sidebar), exposed to Tailwind by the `@theme` block in the same file (`--color-primary: hsl(var(--primary))`, …). It also defines a few utilities (`.gradient-primary`, `.gradient-card`, `.shadow-glow`, `.glass`). Dark-mode variables exist, but there is no toggle and no `ThemeProvider` is mounted.
+Colors are CSS custom properties in [index.css](src/index.css), exposed to Tailwind by the `@theme` block in the same file (`--color-primary: hsl(var(--primary))`, …). The look ("Livro-razão") is a warm neutral background, white cards with thin borders, a white sidebar and one dark emerald accent (`primary`); `success` green and `destructive` red mark gains and losses, always next to a sign. Fonts: Inter for text (with tabular figures on `body`, so numbers line up), Inter Tight for headings and large figures (`font-display`), JetBrains Mono for tickers. Each asset class has a color, `--chart-1` to `--chart-6`, mapped in [asset-class-colors.ts](src/lib/asset-class-colors.ts) for charts and legends. The file also defines a few utilities (`.gradient-primary`, `.gradient-card`, `.shadow-glow`, `.glass`). Dark-mode variables exist (still the old palette), but there is no toggle and no `ThemeProvider` is mounted.
 
 ---
 
