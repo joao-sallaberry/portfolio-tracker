@@ -11,3 +11,13 @@ export const ASSET_CLASS_COLORS: Record<AssetClass, string> = {
   'FIP': 'hsl(var(--chart-5))',
   'Outro': 'hsl(var(--chart-6))',
 };
+
+/** Plural pt-BR name of each asset class, for headings and legends. */
+export const ASSET_CLASS_LABELS: Record<AssetClass, string> = {
+  'Ação': 'Ações',
+  'FII': 'FIIs',
+  'ETF': 'ETFs',
+  'FI-Infra': 'FI-Infra',
+  'FIP': 'FIPs',
+  'Outro': 'Outros',
+};

@@ -69,18 +69,30 @@ test('positions merge fractional tickers and drop sold-out assets', async ({ pag
 
 test('dashboard uses the position cost and counts day-1 payments in their own year', async ({ page }) => {
   const card = (title: string | RegExp) => page.locator('.bg-card').filter({ hasText: title });
-  await expect(card('Total Investido')).toContainText('R$ 5.964,80');
+  await expect(page.getByText('Carteira a preço de custo').locator('..')).toContainText('R$ 5.964,80');
   // 01/01 and 15/02 of YEAR; parsing dates as UTC would move 01/01 into the previous year
   await expect(card(`Proventos em ${YEAR}`)).toContainText('R$ 136,00');
-  await expect(card('Total em Proventos')).toContainText('R$ 1.360,00');
+  await expect(card(`Proventos em ${YEAR}`)).toContainText('6 pagamentos');
+  await expect(card(/Proventos desde \w+\/\d\d/)).toContainText('R$ 1.360,00');
+  // January's loss offsets February's gain; no initial loss saved yet
+  await expect(card(`IR devido em ${YEAR}`)).toContainText(/R\$\s885,5[56]/);
 
-  // Charts actually draw: monthly dividends (12 bars) and top payers (3 bars), plus the pie
-  await expect(card('Proventos por Mês').locator('.recharts-bar-rectangle')).toHaveCount(12);
-  await expect(card('Proventos por Ativo').locator('.recharts-bar-rectangle')).toHaveCount(3);
-  await expect(card('Distribuição do Portfólio').locator('.recharts-pie-sector')).not.toHaveCount(0);
+  // One bar segment per class (Ações and FIIs) in each of the last 12 calendar months with dividends
+  const month = (date: Date) => date.getFullYear() * 12 + date.getMonth();
+  const now = new Date();
+  const window = Array.from({ length: 12 }, (_, i) => month(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+  const paid = Array.from({ length: 20 }, (_, i) => (YEAR - 2) * 12 + 6 + i); // dividendsXlsx: Jul of YEAR-2 on
+  const monthsWithDividends = window.filter((m) => paid.includes(m)).length;
+  await expect(card('Proventos por mês').locator('.recharts-bar-rectangle')).toHaveCount(2 * monthsWithDividends);
   // Axes use compact currency (small values used to round to "R$ 0k")
-  await expect(card('Proventos por Mês')).not.toContainText('0k');
-  await expect(card('Proventos por Mês')).toContainText(/R\$\s20/);
+  await expect(card('Proventos por mês')).not.toContainText('0k');
+  await expect(card('Proventos por mês')).toContainText(/R\$\s20/);
+
+  await expect(card('Alocação por classe')).toContainText('100%');
+  await expect(card('Maiores pagadores').getByRole('listitem').first()).toContainText('MXRF11');
+  await expect(card('Maiores pagadores').getByRole('listitem').first()).toContainText('R$ 1.000,00');
+  await expect(card('Últimas movimentações').getByRole('row').first()).toContainText('Venda · 1.000');
+  await expect(card('Últimas movimentações').getByRole('row').first()).toContainText('R$ 38.000,00');
 });
 
 test('IR taxes the consolidated month, carries the loss and saves the initial loss', async ({ page }) => {

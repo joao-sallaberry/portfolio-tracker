@@ -73,6 +73,10 @@
   --color-chart-5: hsl(var(--chart-5));
   --color-chart-6: hsl(var(--chart-6));
 
+  /* Dark emerald panel for the headline figure of a page */
+  --color-hero: hsl(158 47% 11%);
+  --color-hero-foreground: hsl(153 27% 78%);
+
   --radius-xl: calc(var(--radius) + 4px);
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);

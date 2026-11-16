@@ -66,6 +66,8 @@ portfolio-tracker/
     │   ├── b3-movimentacao.ts  # B3 movements statement → dividends + corporate events
     │   ├── import-dedupe.ts    # Skips rows already stored (frequency map)
     │   ├── list-filters.ts     # Negociações/Proventos filters, sorting, totals, date presets, dividend chart data
+    │   ├── dashboard.ts        # Visão Geral aggregations (monthly dividends, allocation, top payers, tax due)
+    │   ├── asset-class-colors.ts  # Chart color and plural label of each asset class (no tests)
     │   ├── formatters.ts       # BRL currency, dates, number parsing, ticker normalization
     │   ├── fetch-all-pages.ts  # Pages through PostgREST's 1000-row limit
     │   ├── asset-classifier.ts # Ticker → asset class lookup (no tests)
@@ -180,7 +182,7 @@ Implemented in [Auth.tsx](src/pages/Auth.tsx).
 |---|---|---|
 | `/auth` | `Auth` | Login / Sign-up / forgot password (public) |
 | `/redefinir-senha` | `ResetPassword` | New password after the reset email (with or without session) |
-| `/` | `Index` | Dashboard overview |
+| `/` | `Index` | Dashboard: portfolio cost, dividends, tax due, allocation |
 | `/importar` | `Import` | Data import from files |
 | `/negociacoes` | `Negociacoes` | Trade operations browser |
 | `/proventos` | `Proventos` | Dividend events browser |
@@ -314,18 +316,23 @@ A `SELL` or `REVERSE_SPLIT` that takes the quantity to zero or below resets the 
 
 ### 9.2 Dashboard — [Index.tsx](src/pages/Index.tsx)
 
+The aggregations live in [dashboard.ts](src/lib/dashboard.ts); the page holds the selected year and renders.
+
 **Empty state:** a welcome screen with a CTA to `/importar`.
 
-**KPIs (4 cards):**
-- **Total Investido**: total cost of the current positions (`calculatePositions()`, same as Posição)
-- **Total em Proventos**: `Σ dividend.net_value` (all time)
-- **Proventos em {ano}**: same, current year
-- **Operações em {ano}**: count of trades in the current year
+**Year selector:** the current year and the latest years with trades or dividends (up to 3). It sets the year of the dividends and IR cards.
 
-**Charts:**
-1. **Proventos por Mês** — monthly dividend totals (last 12 months).
-2. **Distribuição do Portfólio** — pie chart of position cost per `AssetClass`.
-3. **Proventos por Ativo (Top 8)** — horizontal bar chart of top dividend-paying tickers.
+**KPIs:**
+- **Carteira a preço de custo** (dark panel): total cost of the current positions (`calculatePositions()`, same as Posição), with the number of assets and the share of the largest class
+- **Proventos em {ano}**: `sumDividends(dividends, year)`, with the number of payments
+- **Proventos desde {mmm/aa}**: all dividends since the first payment
+- **IR devido em {ano}**: `taxDueInYear()`, the tax of every tax group as the IR page computes it, each with its stored initial loss, linking to `/imposto-renda`
+
+**Panels:**
+1. **Proventos por mês**: `lastTwelveMonthsDividends()`, the 12 calendar months up to the current one (empty months included), stacked by asset class.
+2. **Alocação por classe**: `allocationByClass()`, a stacked bar and the cost and share of each class.
+3. **Maiores pagadores**: `topPayers()`, the 5 tickers that paid the most, with bars relative to the largest.
+4. **Últimas movimentações**: `recentMovements()`, the latest 5 trades and corporate events.
 
 Dates are parsed with `parseISODateLocal()`, so payments on the 1st of a month are not shifted into the previous month by the UTC offset.
 
@@ -462,5 +469,5 @@ graph LR
 | **Dark mode toggle** | Dark-mode CSS variables exist, but there is no toggle. |
 | **Form validation** | Forms use raw `useState` without a validation library. |
 | **Error handling** | Supabase errors are shown via toasts; render errors by the error boundaries (§6). Query failures (`useQuery` errors) don't reach the boundaries, and pages mostly show them as empty data. |
-| **Test coverage** | Unit tests cover the cost basis, IR sales logic and per-asset history, the Negociações/Proventos filters, statement parsers, import deduplication, formatters and pagination. E2E tests (`npm run test:e2e`) cover login and password reset, the three imports with deduplication, positions, dashboard totals, the IR page with the initial loss, and dividend pagination; they run against the hosted Supabase project (no local stack), using a dedicated test account. The IR "Por Ativo" tab and trade editing have no E2E test. |
+| **Test coverage** | Unit tests cover the cost basis, IR sales logic and per-asset history, the Negociações/Proventos filters, the dashboard aggregations, statement parsers, import deduplication, formatters and pagination. E2E tests (`npm run test:e2e`) cover login and password reset, the three imports with deduplication, positions, dashboard totals, the IR page with the initial loss, and dividend pagination; they run against the hosted Supabase project (no local stack), using a dedicated test account. The IR "Por Ativo" tab and trade editing have no E2E test. |
 | **CSV data freshness** | Asset classification CSVs are static snapshots. New listings require manual updates. |

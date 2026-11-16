@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDateBR, formatCurrencyBRL, formatNumber, parseISODateLocal } from '@/lib/formatters';
+import { formatDateBR, formatCurrencyBRL, formatNumber, movementTypeLabel, parseISODateLocal } from '@/lib/formatters';
 import { classifyAsset } from '@/lib/asset-classifier';
 import { ALL, filterTrades, sumTradeTotals, uniqueSorted } from '@/lib/list-filters';
 import { Switch } from '@/components/ui/switch';
@@ -109,18 +109,6 @@ export default function Negociacoes() {
     setClassFilter('all');
   };
 
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'BUY': return 'Compra';
-      case 'SELL': return 'Venda';
-      case 'BONUS': return 'Bonificação';
-      case 'AMORTIZATION': return 'Amortização';
-      case 'SPLIT': return 'Desdobramento';
-      case 'REVERSE_SPLIT': return 'Grupamento';
-      default: return type;
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -178,7 +166,7 @@ export default function Negociacoes() {
                 <SelectContent position="popper">
                   <SelectItem value="all">Todos os tipos</SelectItem>
                   {uniqueTypes.map(type => (
-                    <SelectItem key={type} value={type}>{getTypeLabel(type)}</SelectItem>
+                    <SelectItem key={type} value={type}>{movementTypeLabel(type)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -363,7 +351,7 @@ export default function Negociacoes() {
                     onValueChange={(val) => setEditingTrade({ 
                       ...editingTrade, 
                       movement_type: val, 
-                      movement_type_raw: getTypeLabel(val) 
+                      movement_type_raw: movementTypeLabel(val) 
                     })}
                   >
                     <SelectTrigger className="w-full">

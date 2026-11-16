@@ -186,3 +186,16 @@ export function parseDateBRShort(dateStr: string): Date | null {
   
   return date;
 }
+
+/** pt-BR label of a movement type (`movement_type`). */
+export function movementTypeLabel(type: string): string {
+  switch (type) {
+    case 'BUY': return 'Compra';
+    case 'SELL': return 'Venda';
+    case 'BONUS': return 'Bonificação';
+    case 'AMORTIZATION': return 'Amortização';
+    case 'SPLIT': return 'Desdobramento';
+    case 'REVERSE_SPLIT': return 'Grupamento';
+    default: return type;
+  }
+}
